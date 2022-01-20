@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package streamProtoc;
+
+option go_package = "github.com/jaden7856/go-grpcUpload/streamProtoc";
+
+service UploadFileService {
+  rpc Upload (stream UploadRequest) returns (UploadResponse) {}
+}
+
+message UploadRequest {
+  bytes Content = 1;
+  string Filename = 2;
+}
+
+enum UploadStatusCode {
+  Unknown = 0;
+  Ok = 1;
+  Failed = 2;
+}
+
+message UploadResponse {
+  string Message = 1;
+  UploadStatusCode Code = 2;
+}
