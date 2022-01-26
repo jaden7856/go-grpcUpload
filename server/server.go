@@ -112,6 +112,7 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 	for {
 		fileData, err = stream.Recv()
 		if err != nil {
+			// 더이상 들어오는 파일이없으면 for문 break
 			if err == io.EOF {
 				break
 			}
@@ -119,10 +120,10 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 			return
 		}
 
-		// first chunk에 file name이 포함되어 있으면
 		if firstChunk {
 
-			if fileData.Filename != "" { //create file
+			//create file
+			if fileData.Filename != "" {
 				fp, err = os.Create(path.Join(s.destDir, filepath.Base(fileData.Filename)))
 				if err != nil {
 					fmt.Println("Unable to create file : " + fileData.Filename)
@@ -135,7 +136,6 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 				defer fp.Close()
 
 			} else {
-
 				fmt.Println("FileName not provided in first chunk : " + fileData.Filename)
 				stream.SendAndClose(&streamPb.UploadResponse{
 					Message: "FileName not provided in first chunk : " + fileData.Filename,
@@ -144,14 +144,13 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 
 				return
 			}
-
 			filename = fileData.Filename
 			firstChunk = false
 		}
 
+		// 생성된 파일에 data의 내용들을 쓴다.
 		err = writeToFp(fp, fileData.Content)
 		if err != nil {
-
 			fmt.Println("Unable to write chunk of filename : " + filename + " " + err.Error())
 			stream.SendAndClose(&streamPb.UploadResponse{
 				Message: "Unable to write chunk of filename : " + filename,
@@ -161,8 +160,7 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 		}
 	}
 
-	// send to Upload
-	fmt.Println("여기까진 오냐?")
+	// 정상적으로 다 파일을 받고나서 클아이언트에 정상적으로 완료가 되었다는 메세지를 전달
 	err = stream.SendAndClose(&streamPb.UploadResponse{
 		Message: "Upload received with success",
 		Code:    streamPb.UploadStatusCode_Ok,
@@ -172,7 +170,7 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 		err = errors.Wrapf(err, "failed to send status code")
 		return
 	}
-	fmt.Println("Successfully received and stored the file :" + filename + " in " + s.destDir)
+	fmt.Println("Successfully received :" + filename + " in " + s.destDir)
 	return
 }
 
