@@ -19,9 +19,10 @@ import (
 
 type ServerGRPC struct {
 	streamPb.UnimplementedUploadFileServiceServer
-	server  *grpc.Server
-	Address string
+	healthpb.UnimplementedHealthServer
+	server *grpc.Server
 
+	Address string
 	destDir string
 }
 
@@ -62,10 +63,13 @@ func (s *ServerGRPC) Listen() (err error) {
 	}
 
 	// gRPC 서버 생성
-	s.server = grpc.NewServer()
+	s.server = grpc.NewServer(
+		//grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+		//	grpc_recovery.UnaryServerInterceptor(),
+		//)),
+	)
 	// healthCheck 서버 생성
 	healthServer := health.NewServer()
-
 	healthpb.RegisterHealthServer(s.server, healthServer)
 	streamPb.RegisterUploadFileServiceServer(s.server, s)
 
