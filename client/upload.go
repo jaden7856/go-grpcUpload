@@ -17,9 +17,16 @@ import (
 	"github.com/urfave/cli"
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 )
 
 const chunkSize = 64 * 1024
+
+var kacp = keepalive.ClientParameters{
+	Time:                10 * time.Second, // 활동이 없으면 10초마다 ping을 보냅니다.
+	Timeout:             time.Second,      // 연결이 끊어진 것으로 간주하기 전에 ping ack을 1초 동안 기다립니다.
+	PermitWithoutStream: true,             // 활성 스트림 없이도 ping 보내기
+}
 
 type uploader struct {
 	dir    string
@@ -42,7 +49,8 @@ func NewUploader(ctx context.Context, client streamPb.UploadFileServiceClient, d
 		DoneRequest: make(chan string),
 		FailRequest: make(chan string),
 	}
-	for i := 0; i < 10; i++ {
+	// 한번에 몇개의 파일을 보낼지
+	for i := 0; i < 5; i++ {
 		d.wg.Add(1)
 		go d.worker(i + 1)
 	}
@@ -242,6 +250,8 @@ func uploadCommand() cli.Command {
 				grpc.WithBlock(),
 				// 클라이언트 연결이 마지막으로 발생한 연결 오류와 context.DeadlineExceeded 오류를 모두 포함하는 문자열을 반환
 				grpc.WithReturnConnectionError(),
+				// 클라이언트와 서버가 연결이 되어있는지 지속적으로 확인 watchdog
+				grpc.WithKeepaliveParams(kacp),
 			}
 			addr := c.String("a")
 			conn, err := grpc.Dial(addr, options...)
