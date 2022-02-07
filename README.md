@@ -13,33 +13,33 @@ Server : start the server( default destination of files is /tmp) :
 - windows
 
 ```
-$ server-win serve --a <ip:port> -d <destination folder>
-Eg server-win serve -a localhost:9191 -d /media/
+$ server serve --a <ip:port> -d <destination folder>
+Eg server serve -a localhost:8080 -d /home/
 ```
 
 - linux
 
 ```
 $ ./server-linux serve --a <ip:port> -d <destination folder>
-Eg ./server-linux serve -a localhost:9191 -d /media/
+Eg ./server-linux serve -a localhost:8080 -d /home/
 ```
 
-
+<br>
 
 Client : Upload all files in the specified directory to the server :
 
 - windows
 
 ```
-$ client-win upload  -a <ip:port> -d <folder containing files to upload>   
-Eg  client-win upload -a localhost:9191 -d /home/
+$ client upload  -a <ip:port> -d <folder containing files to upload>   
+Eg  client upload -a localhost:8080 -d /home/
 ```
 
 - linux
 
 ```
 $ ./client-linux upload  -a <ip:port> -d <folder containing files to upload>   
-Eg  ./client-linux upload -a localhost:9191 -d /home/
+Eg  ./client-linux upload -a localhost:8080 -d /home/
 ```
 
 
