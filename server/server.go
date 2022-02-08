@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	streamPb "github.com/jaden7856/go-grpcUpload/streamProtoc"
 	"github.com/pkg/errors"
@@ -15,7 +15,22 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 )
+
+var kaep = keepalive.EnforcementPolicy{
+	MinTime:             5 * time.Second, // 클라이언트가 5초에 한 번 이상 ping을 보내는 경우 연결을 종료합니다.
+	PermitWithoutStream: true,            // 활성 스트림이 없는 경우에도 ping 허용
+}
+
+var kasp = keepalive.ServerParameters{
+	MaxConnectionIdle: 15 * time.Second, // 클라이언트가 60초 동안 유휴 상태이면 GOAWAY를 보냅니다.
+	//MaxConnectionAge:      60 * time.Second, // 연결이 60초 이상 지속되면 GOAWAY를 보냅니다.
+	//MaxConnectionAgeGrace: 5 * time.Second,  // 연결을 강제로 닫기 전에 보류 중인 RPC가 완료될 때까지 5초 허용
+	Time: 5 * time.Second, // 연결이 여전히 활성 상태인지 확인하기 위해 5초 동안 클라이언트가
+	// 유휴 상태인 경우 클라이언트를 ping 합니다.
+	Timeout: 1 * time.Second, // 연결이 끊어졌다고 가정하기 전에 ping ack를 1초 동안 기다립니다.
+}
 
 type ServerGRPC struct {
 	streamPb.UnimplementedUploadFileServiceServer
@@ -41,7 +56,7 @@ func NewServerGRPC(cfg ServerGRPCConfig) (s ServerGRPC, err error) {
 	s.Address = cfg.Address
 	// 지정한 경로에 파일이 있는지 확인
 	if _, err = os.Stat(cfg.DestDir); err != nil {
-		fmt.Println("Directory doesnt exist")
+		fmt.Println("Directory doesn't exist")
 		return
 	}
 
@@ -64,9 +79,9 @@ func (s *ServerGRPC) Listen() (err error) {
 
 	// gRPC 서버 생성
 	s.server = grpc.NewServer(
-		//grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-		//	grpc_recovery.UnaryServerInterceptor(),
-		//)),
+		// Server keepalive
+		grpc.KeepaliveEnforcementPolicy(kaep),
+		grpc.KeepaliveParams(kasp),
 	)
 	// healthCheck 서버 생성
 	healthServer := health.NewServer()
@@ -104,7 +119,6 @@ func writeToFp(fp *os.File, data []byte) error {
 
 //goland:noinspection ALL
 func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err error) {
-	log.Println("start new server")
 	firstChunk := true
 
 	var (
