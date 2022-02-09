@@ -23,7 +23,7 @@ import (
 const chunkSize = 64 * 1024
 
 var kacp = keepalive.ClientParameters{
-	Time:                10 * time.Second, // 활동이 없으면 10초마다 ping을 보냅니다.
+	Time:                10 * time.Second, // 전송이 아직 살아있는지 확인하기 위해 서버에 ping을 보냅니다.
 	Timeout:             time.Second,      // 연결이 끊어진 것으로 간주하기 전에 ping ack을 1초 동안 기다립니다.
 	PermitWithoutStream: true,             // 활성 스트림 없이도 ping 보내기
 }
