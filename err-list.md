@@ -10,6 +10,16 @@
 
     <br>
 
+    
+
+  - `rpc error: code = Unavailable desc = error reading from server: read tcp 192.168.33.139:52596->192.168.33.137:5001: read: connection timed out`
+
+    - LAN선을 뽑고 Client에서 전송이 안될때 에러 발생코드
+
+    <br>
+
+    
+
   - `EOF: failed to send`
 
     - 파일이 정상적으로 보내지 못했다는 커스텀 에러
