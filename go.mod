@@ -6,7 +6,7 @@ require (
 	github.com/cheggaaa/pb v1.0.29
 	github.com/pkg/errors v0.9.1
 	github.com/urfave/cli v1.22.5
-	google.golang.org/grpc v1.43.0
+	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1
 )
 
