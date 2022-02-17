@@ -19,17 +19,20 @@ import (
 )
 
 var kaep = keepalive.EnforcementPolicy{
-	MinTime:             5 * time.Second, // 클라이언트가 5초에 한 번 이상 ping을 보내는 경우 연결을 종료합니다.
-	PermitWithoutStream: true,            // 활성 스트림이 없는 경우에도 ping 허용
+	// 클라이언트가 5초에 한 번 이상 ping을 보내는 경우 연결을 종료합니다.
+	MinTime: 5 * time.Second,
+	// 활성 스트림이 없는 경우에도 ping 허용
+	PermitWithoutStream: true,
 }
 
 var kasp = keepalive.ServerParameters{
-	MaxConnectionIdle: 15 * time.Second, // 클라이언트가 60초 동안 유휴 상태이면 GOAWAY를 보냅니다.
-	//MaxConnectionAge:      60 * time.Second, // 연결이 60초 이상 지속되면 GOAWAY를 보냅니다.
-	//MaxConnectionAgeGrace: 5 * time.Second,  // 연결을 강제로 닫기 전에 보류 중인 RPC가 완료될 때까지 5초 허용
-	Time: 5 * time.Second, // 연결이 여전히 활성 상태인지 확인하기 위해 5초 동안 클라이언트가
+	// 클라이언트가 60초 동안 유휴 상태이면 GOAWAY를 보냅니다.
+	MaxConnectionIdle: 15 * time.Second,
+	// 연결이 여전히 활성 상태인지 확인하기 위해 5초 동안 클라이언트가
 	// 유휴 상태인 경우 클라이언트를 ping 합니다.
-	Timeout: 1 * time.Second, // 연결이 끊어졌다고 가정하기 전에 ping ack를 1초 동안 기다립니다.
+	Time: 5 * time.Second,
+	// 연결이 끊어졌다고 가정하기 전에 ping ack를 1초 동안 기다립니다.
+	Timeout: 1 * time.Second,
 }
 
 type ServerGRPC struct {
@@ -88,14 +91,14 @@ func (s *ServerGRPC) Listen() (err error) {
 	healthpb.RegisterHealthServer(s.server, healthServer)
 	streamPb.RegisterUploadFileServiceServer(s.server, s)
 
-	// 정상적으로 연결이 된 상태
-	healthServer.SetServingStatus(serviceName, healthpb.HealthCheckResponse_SERVING)
-
 	if err = s.server.Serve(lis); err != nil {
 		err = errors.Wrapf(err, "errored listening for grpc connections")
+		healthServer.SetServingStatus(serviceName, healthpb.HealthCheckResponse_NOT_SERVING)
 		return
 	}
 
+	// 정상적으로 연결이 된 상태
+	healthServer.SetServingStatus(serviceName, healthpb.HealthCheckResponse_SERVING)
 	return
 }
 
