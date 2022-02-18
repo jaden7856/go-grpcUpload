@@ -19,19 +19,19 @@ import (
 )
 
 var kaep = keepalive.EnforcementPolicy{
-	// 클라이언트가 5초에 한 번 이상 ping을 보내는 경우 연결을 종료합니다.
+	// 클라이언트가 5초에 한 번 이상 ping 을 보내는 경우 연결을 종료합니다.
 	MinTime: 5 * time.Second,
 	// 활성 스트림이 없는 경우에도 ping 허용
 	PermitWithoutStream: true,
 }
 
 var kasp = keepalive.ServerParameters{
-	// 클라이언트가 60초 동안 유휴 상태이면 GOAWAY를 보냅니다.
+	// 클라이언트가 60초 동안 유휴 상태이면 GOAWAY 를 보냅니다.
 	MaxConnectionIdle: 15 * time.Second,
 	// 연결이 여전히 활성 상태인지 확인하기 위해 5초 동안 클라이언트가
 	// 유휴 상태인 경우 클라이언트를 ping 합니다.
 	Time: 5 * time.Second,
-	// 연결이 끊어졌다고 가정하기 전에 ping ack를 1초 동안 기다립니다.
+	// 연결이 끊어졌다고 가정하기 전에 ping ack 를 1초 동안 기다립니다.
 	Timeout: 1 * time.Second,
 }
 
@@ -76,7 +76,7 @@ func (s *ServerGRPC) Listen() (err error) {
 
 	lis, err = net.Listen("tcp", s.Address)
 	if err != nil {
-		err = errors.Wrapf(err, "failed to listen on  %d", s.Address)
+		err = errors.Wrapf(err, "failed to listen on  %s", s.Address)
 		return
 	}
 
@@ -103,7 +103,7 @@ func (s *ServerGRPC) Listen() (err error) {
 }
 
 // writeToFp는 파일 포인터와 바이트 배열을 가져와서 파일에 바이트 배열을 씁니다.
-// 포인터가 nil이거나 파일 쓰기 오류인 경우 오류를 반환합니다.
+// 포인터가 nil 이거나 파일 쓰기 오류인 경우 오류를 반환합니다.
 func writeToFp(fp *os.File, data []byte) error {
 	w := 0
 	n := len(data)
@@ -215,7 +215,7 @@ func ServerCommand() cli.Command {
 			},
 			&cli.StringFlag{
 				Name:  "d",
-				Usage: "Destrination directory Default is /tmp",
+				Usage: "Destination directory Default is /tmp",
 				Value: "/tmp",
 			},
 		},
