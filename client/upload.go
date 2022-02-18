@@ -23,8 +23,8 @@ import (
 const chunkSize = 64 * 1024
 
 var kacp = keepalive.ClientParameters{
-	Time:                10 * time.Second, // 전송이 아직 살아있는지 확인하기 위해 서버에 ping을 보냅니다.
-	Timeout:             time.Second,      // 연결이 끊어진 것으로 간주하기 전에 ping ack을 1초 동안 기다립니다.
+	Time:                10 * time.Second, // 전송이 아직 살아있는지 확인하기 위해 서버에 ping 을 보냅니다.
+	Timeout:             time.Second,      // 연결이 끊어진 것으로 간주하기 전에 ping ack 을 1초 동안 기다립니다.
 	PermitWithoutStream: true,             // 활성 스트림 없이도 ping 보내기
 }
 
@@ -60,7 +60,7 @@ func NewUploader(ctx context.Context, client streamPb.UploadFileServiceClient, d
 }
 
 func (d *uploader) Do(filepath string) {
-	// 파일 경로를 requests에 전달
+	// 파일 경로를 requests 에 전달
 	d.requests <- filepath
 }
 
@@ -227,6 +227,7 @@ func UploadFile(ctx context.Context, client streamPb.UploadFileServiceClient, fi
 	return errorUploadBulk
 }
 
+//goland:noinspection ALL
 func uploadCommand() cli.Command {
 	return cli.Command{
 		Name:  "upload",
@@ -265,9 +266,10 @@ func uploadCommand() cli.Command {
 				}
 			}(conn)
 
-			resp, err := healthpb.NewHealthClient(conn).Check(context.Background(), &healthpb.HealthCheckRequest{
-				Service: "test",
-			})
+			resp, err := healthpb.NewHealthClient(conn).Check(context.Background(),
+				&healthpb.HealthCheckRequest{
+					Service: "test",
+				})
 
 			if err != nil {
 				log.Printf("can't connect grpc server: %v", err)
@@ -275,7 +277,12 @@ func uploadCommand() cli.Command {
 				log.Printf("status: %s", resp.GetStatus().String())
 			}
 
-			return UploadFile(context.Background(), streamPb.NewUploadFileServiceClient(conn), []string{}, c.String("d"))
+			return UploadFile(
+				context.Background(),
+				streamPb.NewUploadFileServiceClient(conn),
+				[]string{},
+				c.String("d"),
+			)
 		},
 	}
 }
