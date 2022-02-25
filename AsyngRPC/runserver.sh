@@ -15,8 +15,8 @@ do
 	then
 			for nSize in 512 # 1024 2048 4096 8192 16384 32768 65536
 			do
-				echo "./server/go-server-$sTarget -add=centos7ora2:$gnPort -size=$nSize &"
-				./server/go-server-$sTarget -add=centos7ora2:$gnPort -size=$nSize &
+				echo "./server/go-server-$sTarget -a=kubespray:$gnPort -size=$nSize &"
+				./server/go-server-$sTarget -a=kubespray:$gnPort -size=$nSize &
 
 				if [ "$?" == "0" ]
 				then
