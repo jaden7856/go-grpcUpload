@@ -30,8 +30,8 @@ do
 					do
 						sLogName=ztime-$sTarget-$nSize.json
 
-						echo "./client/go-client-$sTarget -add=centos7ora2:$gnPort -size=$nSize -count=$nCount -loop=$nLoop"
-						./client/go-client-$sTarget -add=centos7ora2:$gnPort -size=$nSize -c=$nCount -l=$nLoop
+						echo "./client/go-client-$sTarget -a=kubespray:$gnPort -size=$nSize -count=$nCount -loop=$nLoop"
+						./client/go-client-$sTarget -a=kubespray:$gnPort -size=$nSize -c=$nCount -l=$nLoop
 
 						if [ "$?" == "0" ]
 						then
