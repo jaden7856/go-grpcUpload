@@ -7,11 +7,9 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
-	"github.com/cheggaaa/pb"
 	streamPb "github.com/jaden7856/go-grpcUpload/streamProtoc"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
@@ -19,11 +17,6 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 )
-
-type timeElapsed struct {
-	elapsedTime   time.Duration
-	nSendCntTotal int
-}
 
 const chunkSize = 64 * 1024
 
@@ -34,26 +27,21 @@ var kacp = keepalive.ClientParameters{
 }
 
 type uploader struct {
-	dir     string
-	packCnt int
-	loopCnt int
-	client  streamPb.UploadFileServiceClient
-	ctx     context.Context
-	wg      sync.WaitGroup
-	pool    *pb.Pool
+	dir    string
+	client streamPb.UploadFileServiceClient
+	ctx    context.Context
+	wg     sync.WaitGroup
 
 	requests    chan string // 각 요청은 클라이언트가 액세스할 수 있는 클라이언트의 파일 경로입니다.
 	DoneRequest chan string
 	FailRequest chan string
 }
 
-func NewUploader(ctx context.Context, client streamPb.UploadFileServiceClient, dir string, packCnt int, loopCnt int) *uploader {
+func NewUploader(ctx context.Context, client streamPb.UploadFileServiceClient, dir string) *uploader {
 	d := &uploader{
 		ctx:         ctx,
 		client:      client,
 		dir:         dir,
-		packCnt:     packCnt,
-		loopCnt:     loopCnt,
 		requests:    make(chan string),
 		DoneRequest: make(chan string),
 		FailRequest: make(chan string),
@@ -64,7 +52,6 @@ func NewUploader(ctx context.Context, client streamPb.UploadFileServiceClient, d
 		go d.worker(i + 1)
 	}
 
-	d.pool, _ = pb.StartPool()
 	return d
 }
 
@@ -76,8 +63,6 @@ func (d *uploader) Do(filepath string) {
 func (d *uploader) Stop() {
 	close(d.requests)
 	d.wg.Wait()
-	d.pool.RefreshRate = 500 * time.Millisecond
-	d.pool.Stop()
 }
 
 //goland:noinspection ALL
@@ -86,21 +71,7 @@ func (d *uploader) worker(workerID int) {
 	var (
 		buf        []byte
 		firstChunk bool
-
-		startTime      time.Time
-		srtTimeElapsed []timeElapsed
-		nElapsedCnt    int = 0
-		nElapsedIx     int = 0
-
-		nSendCntTotal int = 0
-		ix            int = 0
 	)
-
-	nElapsedCnt = d.packCnt*d.loopCnt/1000 + 30
-	srtTimeElapsed = make([]timeElapsed, nElapsedCnt)
-
-	// 시작 시간
-	startTime = time.Now()
 
 	// 파일 경로에서 파일들을 추출
 	for request := range d.requests {
@@ -123,24 +94,10 @@ func (d *uploader) worker(workerID int) {
 		}
 		defer stream.CloseSend()
 
-		// file info
-		stat, errstat := file.Stat()
-		if errstat != nil {
-			err = errors.Wrapf(err,
-				"Unable to get file size  %s",
-				request)
-			return
-		}
-
-		// client 측에서 server에 send할때 진행률 bar 표시
-		bar := pb.New64(stat.Size()).Postfix(" " + filepath.Base(request))
-		bar.Units = pb.U_BYTES
-		d.pool.Add(bar)
-
 		// 파일 크기만큼 바이트 슬라이스 생성
 		buf = make([]byte, chunkSize)
 		firstChunk = true
-		for ix = 0; ix < d.packCnt; ix++ {
+		for {
 			// 파일의 내용을 읽어서 바이트 슬라이스에 저장
 			f, errRead := file.Read(buf)
 			if errRead != nil {
@@ -153,39 +110,19 @@ func (d *uploader) worker(workerID int) {
 			}
 
 			if firstChunk {
-				nSendCntTotal++
 				// Send to Server
 				err = stream.Send(&streamPb.UploadRequest{
 					Content:  buf[:f],
 					Filename: request,
 				})
+
 				firstChunk = false
+
 			} else {
-				nSendCntTotal++
 				err = stream.Send(&streamPb.UploadRequest{
 					Content: buf[:f],
 				})
 			}
-			if err != nil {
-				bar.FinishPrint("failed to send chunk via stream file : " + request)
-				break
-			}
-			bar.Add64(int64(f))
-
-			// 경과 시간 저장
-			if nSendCntTotal == 1 ||
-				(nSendCntTotal >= 10 && nSendCntTotal < 100 && nSendCntTotal%10 == 0) ||
-				(nSendCntTotal >= 100 && nSendCntTotal < 1000 && nSendCntTotal%100 == 0) ||
-				(nSendCntTotal%1000 == 0) {
-				if nElapsedIx < nElapsedCnt {
-					srtTimeElapsed[nElapsedIx].nSendCntTotal = nSendCntTotal
-					srtTimeElapsed[nElapsedIx].elapsedTime = time.Since(startTime)
-					nElapsedIx++
-				} else {
-					fmt.Printf("[W] ElapsedIx(%d) < ELASPIX\n", nElapsedIx)
-				}
-			}
-
 		}
 
 		// 클라이언트에서 send를 완료하고 서버에서 다 받고나서 완료 메세지를 보내면
@@ -193,39 +130,23 @@ func (d *uploader) worker(workerID int) {
 		status, err := stream.CloseAndRecv()
 		if err != nil { //retry needed
 			fmt.Println("failed to receive upstream status response")
-			bar.FinishPrint("Error uploading file : " + request + " Error :" + err.Error())
-			bar.Reset(0)
 			d.FailRequest <- request
 			return
 		}
 
 		if status.Code != streamPb.UploadStatusCode_Ok { //retry needed
 			fmt.Printf("Error uploading file : " + request + " :" + status.Message)
-			bar.Reset(0)
 			d.FailRequest <- request
 			return
 		}
 
-		// 타임로그 작성
-		if nElapsedIx < nElapsedCnt {
-			srtTimeElapsed[nElapsedIx].nSendCntTotal = nSendCntTotal + 1
-			srtTimeElapsed[nElapsedIx].elapsedTime = time.Since(startTime)
-			nElapsedIx++
-		}
-		for ix = 0; ix < nElapsedCnt; ix++ {
-			if srtTimeElapsed[ix].nSendCntTotal > 0 {
-				fmt.Fprintf(file, "{ \"index\" : { \"_index\" : \"commspeed\", \"_type\" : \"record\", \"_id\" : \"%v\" } }\n{\"sender\":\"AsynGRPCst_%s\", \"packcnt\":%d, \"loopcnt\":%d, \"escount\":%d, \"estime\":%v}\n",
-					time.Now().UnixNano(), d.packCnt, d.loopCnt, srtTimeElapsed[ix].nSendCntTotal, srtTimeElapsed[ix].elapsedTime.Nanoseconds())
-			}
-		}
-
 		d.DoneRequest <- request
-		bar.Finish()
 	}
 }
 
-func UploadFile(ctx context.Context, client streamPb.UploadFileServiceClient, filePathList []string, dir string, packCnt int, loopCnt int) error {
-	d := NewUploader(ctx, client, dir, packCnt, loopCnt)
+func UploadFile(ctx context.Context, client streamPb.UploadFileServiceClient, filePathList []string, dir string) error {
+	println("Start send file")
+	d := NewUploader(ctx, client, dir)
 	var errorUploadBulk error
 
 	if dir != "" {
@@ -256,7 +177,6 @@ func UploadFile(ctx context.Context, client streamPb.UploadFileServiceClient, fi
 				}
 			}
 		}
-		fmt.Println("All done ")
 
 	} else {
 		go func() {
@@ -295,16 +215,6 @@ func uploadCommand() cli.Command {
 				Name:  "d",
 				Value: "",
 				Usage: "base directory",
-			},
-			&cli.IntFlag{
-				Name:  "c",
-				Value: 1000000,
-				Usage: "packet count",
-			},
-			&cli.IntFlag{
-				Name:  "l",
-				Value: 1,
-				Usage: "loop count",
 			},
 		},
 		Action: func(c *cli.Context) error {
@@ -345,8 +255,6 @@ func uploadCommand() cli.Command {
 				streamPb.NewUploadFileServiceClient(conn),
 				[]string{},
 				c.String("d"),
-				c.Int("c"),
-				c.Int("l"),
 			)
 		},
 	}
