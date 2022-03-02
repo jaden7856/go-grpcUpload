@@ -40,9 +40,6 @@ type ServerGRPC struct {
 	healthpb.UnimplementedHealthServer
 	server *grpc.Server
 
-	nReadCntTotal int
-	nSendCntTotal int
-
 	Address string
 	destDir string
 }
@@ -133,6 +130,8 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 		filename string
 	)
 
+	start := time.Now()
+
 	for {
 		fileData, err = stream.Recv()
 		if err != nil {
@@ -143,8 +142,6 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 			err = errors.Wrapf(err, "failed while reading from stream")
 			return
 		}
-
-		s.nReadCntTotal++
 
 		if firstChunk {
 
@@ -196,7 +193,9 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 		err = errors.Wrapf(err, "failed to send status code")
 		return
 	}
-	fmt.Println("Successfully received :" + filename + " in " + s.destDir)
+
+	end := time.Since(start)
+	fmt.Printf("Successfully received %s in %s, end time : %s\n", filename, s.destDir, end)
 	return
 }
 
