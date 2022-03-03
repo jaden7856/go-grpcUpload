@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package ipcgrpc;
+
+// 내부IPC 서비스 - 내부IPC 용으로 GRPC 사용 테스트
+service Ipcgrpc {
+    rpc SendData (stream IpcRequest) returns (stream IpcReply) {}
+}
+
+// 요청 메시지
+message IpcRequest {
+  bytes bsreq = 1;
+}
+
+// 응답 메시지
+message IpcReply {
+  bytes bsres = 1;
+}
+

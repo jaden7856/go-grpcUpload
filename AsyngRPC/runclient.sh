@@ -1,8 +1,9 @@
 #!/bin/bash
 
-gsTarget=( "AsyngRPCs" )
+gsTarget=( "AsynSocket" "AsyngRPCs" )
+gsTls=( "tls" "none")
 gsCL=( "cnt" "lop" )
-gnPort=50050
+gnPort=50056
 
 pkill -9 go-client
 
@@ -13,8 +14,19 @@ do
 
 	if [ "$?" == "0" ]
 	then
+		for sTls in ${gsTls[*]}
+		do
+			if [[ $sTls == "5QUIC" || $sTls == "8AsynQUIC" ]]
+			then
+				if [ $sTls == "none" ]
+				then
+					break	# 5QUIC는 1번만 돌면 된다. 기본이 TLS라서
+				fi
+			fi
+
 			for nSize in 512 # 512 1024 2048 4096 8192 16384 32768 65536
 			do
+				let gnPort=gnPort+1
 				for sCL in ${gsCL[*]}
 				do
 				    if [ "$sCL" == "cnt" ]
@@ -30,18 +42,19 @@ do
 					do
 						sLogName=ztime-$sTarget-$nSize.json
 
-						echo "./client/go-client-$sTarget -a=kubespray:$gnPort -size=$nSize -count=$nCount -loop=$nLoop"
-						./client/go-client-$sTarget -a=kubespray:$gnPort -size=$nSize -c=$nCount -l=$nLoop
+						echo "./client/go-client-$sTarget -add=master:$gnPort -tls=$sTls -size=$nSize -count=$nCount -loop=$nLoop -logtime=$sLogName -debug=0"
+						./client/go-client-$sTarget -add=master:$gnPort -tls=$sTls -size=$nSize -count=$nCount -loop=$nLoop -logtime=$sLogName -debug=0
 
 						if [ "$?" == "0" ]
 						then
-							echo "OK"	
+							echo "OK"
 						else
 							touch zzz_$sTarget.err
 						fi
 					done
 				done
 			done
+		done
 	fi
 
 	cd ..
