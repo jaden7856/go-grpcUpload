@@ -20,9 +20,9 @@ ex) exe -add=centos7ora2:50057 -tls=tls -size=512 -count=1000000 -loop=1 -logtim
 package main
 
 import (
-	pb "../protobuf"
 	"flag"
 	"fmt"
+	pb "github.com/jaden7856/go-grpcUpload/AsyngRPC/AsyngRPCs/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

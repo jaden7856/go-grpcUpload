@@ -13,15 +13,14 @@ ex) exe -add=192.168.124.131:50057 -tls=tls -size=512 -debug=0
 package main
 
 import (
-	pb "../protobuf"
 	"flag"
 	"fmt"
-	"net"
-	//	"golang.org/x/net/context"
+	pb "github.com/jaden7856/go-grpcUpload/AsyngRPC/AsyngRPCs/protobuf"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 	"io"
+	"net"
 )
 
 //
