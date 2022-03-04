@@ -17,7 +17,6 @@ import (
 	"fmt"
 	pb "github.com/jaden7856/go-grpcUpload/AsyngRPC/AsyngRPCs/protobuf"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 	"io"
 	"net"
@@ -25,6 +24,9 @@ import (
 
 //
 type server struct {
+	pb.UnimplementedIpcgrpcServer
+	//server *grpc.Server
+
 	nReadCntTotal int
 	nSendCntTotal int
 	nDebugMode    int
@@ -44,7 +46,6 @@ func main() {
 
 	// 초기화
 	pstAddress := flag.String("add", "master:50057", "ip:port")
-	pstTls := flag.String("tls", "none", "none or tls")
 	pnPackSize := flag.Int("size", 512, "packet size")
 	*pnPackSize = 512
 	pnDebugMode := flag.Int("debug", 0, "debug mode - 0,1,2")
@@ -54,20 +55,12 @@ func main() {
 	listen, err := net.Listen("tcp", *pstAddress)
 	checkErr(0, "Listen", err)
 
-	// 옵션 설정
-	if *pstTls == "tls" {
-		cred, err := credentials.NewServerTLSFromFile("cert/server.crt", "cert/server.key")
-		checkErr(0, "TLS", err)
-		opts = []grpc.ServerOption{grpc.MaxRecvMsgSize(WINSIZE), grpc.MaxSendMsgSize(WINSIZE), grpc.Creds(cred)}
-		fmt.Printf("Start TLS (%v)\n", *pstAddress)
-	} else {
-		opts = []grpc.ServerOption{grpc.MaxRecvMsgSize(WINSIZE), grpc.MaxSendMsgSize(WINSIZE)}
-		fmt.Printf("Start (%v)\n", *pstAddress)
-	}
+	opts = []grpc.ServerOption{grpc.MaxRecvMsgSize(WINSIZE), grpc.MaxSendMsgSize(WINSIZE)}
+	fmt.Printf("Start (%v)\n", *pstAddress)
 
 	// 호출 대기
 	s := grpc.NewServer(opts...)
-	pb.RegisterIpcgrpcServer(s, &server{0, 0, *pnDebugMode, nil, nil, nil})
+	pb.RegisterIpcgrpcServer(s, &server{nDebugMode: *pnDebugMode})
 	reflection.Register(s)
 	err = s.Serve(listen)
 	if err != nil {

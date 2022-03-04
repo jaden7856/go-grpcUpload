@@ -25,7 +25,6 @@ import (
 	pb "github.com/jaden7856/go-grpcUpload/AsyngRPC/AsyngRPCs/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"io"
 	"os"
 	"sync"
@@ -45,7 +44,6 @@ func main() {
 	var (
 		err    error
 		opts   []grpc.DialOption
-		cert   credentials.TransportCredentials
 		conn   *grpc.ClientConn
 		client pb.IpcgrpcClient
 		req    pb.IpcRequest
@@ -55,19 +53,17 @@ func main() {
 		wgMain         sync.WaitGroup
 		startTime      time.Time
 		srtTimeElapeed []timeElapsed
-		nElapsedCnt    int = 0
-		nElapsedIx     int = 0
+		nElapsedCnt    = 0
+		nElapsedIx     = 0
 
-		nReadCntTotal, nSendCntTotal int = 0, 0
-		ix                           int = 0
+		nReadCntTotal, nSendCntTotal = 0, 0
+		ix                           = 0
 	)
 
 	// 초기화
 	pstAddress := flag.String("add", "master:50057", "ip:port")
-	pstTls := flag.String("tls", "none", "none or tls")
 	pnPackSize := flag.Int("size", 512, "packet size")
 	pnPackCount := flag.Int("count", 1000000, "packet count")
-	pnLoopCount := flag.Int("loop", 1, "loop count")
 	pstLogTime := flag.String("logtime", "ztime.json", "logtime name")
 	pnDebugMode := flag.Int("debug", 0, "debug mode - 0,1,2")
 	flag.Parse()
@@ -78,30 +74,22 @@ func main() {
 	req.Bsreq = bsBufS
 	//ctx, cancel := context.WithTimeout(context.Background(), time.Second*60000)
 	//defer cancel()
-	nElapsedCnt = *pnPackCount**pnLoopCount/1000 + 30
+	nElapsedCnt = *pnPackCount/1000 + 30
 	srtTimeElapeed = make([]timeElapsed, nElapsedCnt)
 	fpTime, _ := os.OpenFile(*pstLogTime, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if *pstTls == "tls" {
-		// cert, err = credentials.NewClientTLSFromFile("cert/server.crt", "cert/server.key")	// -> key 설정하면 연결 안 됨 (transport: authentication handshake failed: x509: certificate is valid for centos7ora2, not cert/server.key)
-		cert, err = credentials.NewClientTLSFromFile("cert/server.crt", "")
-		checkErr(0, "TLS", err)
-		opts = []grpc.DialOption{grpc.WithTransportCredentials(cert), grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(WINSIZE), grpc.MaxCallRecvMsgSize(WINSIZE))}
-		if *pnDebugMode > 0 {
-			fmt.Printf("Start TLS (%s)\n", *pstAddress)
-		}
-	} else {
-		opts = []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(WINSIZE), grpc.MaxCallRecvMsgSize(WINSIZE))}
-		if *pnDebugMode > 0 {
-			fmt.Printf("Start (%v)\n", *pstAddress)
-		}
+
+	opts = []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(WINSIZE), grpc.MaxCallRecvMsgSize(WINSIZE))}
+	if *pnDebugMode > 0 {
+		fmt.Printf("Start (%v)\n", *pstAddress)
 	}
+
 	fmt.Println("Begin")
 
 	// 시작 시간
 	startTime = time.Now()
 
 	// Loop 개수만큼 연결 끊기
-	for nLoop := 0; nLoop < *pnLoopCount; nLoop++ {
+	for {
 		// 서버 연결
 		conn, err = grpc.Dial(*pstAddress, opts...)
 		if err != nil {
@@ -192,6 +180,7 @@ func main() {
 		if *pnDebugMode > 0 {
 			fmt.Println("Stop")
 		}
+
 		conn.Close()
 	}
 
@@ -203,25 +192,12 @@ func main() {
 	}
 	for ix = 0; ix < nElapsedCnt; ix++ {
 		if srtTimeElapeed[ix].nSendCntTotal > 0 {
-			fmt.Fprintf(fpTime, "{ \"index\" : { \"_index\" : \"commspeed\", \"_type\" : \"record\", \"_id\" : \"%v\" } }\n{\"sender\":\"AsynGRPCst_%s\", \"tls\":\"%s\", \"sync\":\"async\", \"packsize\":%d, \"loopcnt\":%d, \"packcnt\":%d, \"escount\":%d, \"estime\":%v}\n",
-				time.Now().UnixNano(), *pstTls, *pstTls, *pnPackSize, *pnLoopCount, *pnPackCount, srtTimeElapeed[ix].nSendCntTotal, srtTimeElapeed[ix].elapsedTime.Nanoseconds())
+			fmt.Fprintf(fpTime, "{ \"index\" : { \"_index\" : \"commspeed\", \"_type\" : \"record\", \"_id\" : \"%v\" } }\n{\"sync\":\"async\", \"packsize\":%d, \"packcnt\":%d, \"escount\":%d, \"estime\":%v}\n",
+				time.Now().UnixNano(), *pnPackSize, *pnPackCount, srtTimeElapeed[ix].nSendCntTotal, srtTimeElapeed[ix].elapsedTime)
 		}
 	}
 
 	// 종료
 	_ = fpTime.Close()
 	fmt.Println("End")
-}
-
-// 에러 체크
-func checkErr(nMode int, strTitle string, err error) {
-	if err != nil {
-		fmt.Println(strTitle + " -> " + err.Error())
-		if nMode == 0 {
-			panic(err)
-		} else {
-		}
-	} else {
-		// 에러 아니여 ~
-	}
 }
