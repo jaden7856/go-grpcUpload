@@ -2,8 +2,6 @@ syntax = "proto3";
 
 package ipcgrpc;
 
-option go_package = "github.com/jaden7856/go-grpcUpload/AsyngRPC/AsyngRPCs/protobuf";
-
 // 내부IPC 서비스 - 내부IPC 용으로 GRPC 사용 테스트
 service Ipcgrpc {
     rpc SendData (stream IpcRequest) returns (stream IpcReply) {}
