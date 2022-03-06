@@ -19,14 +19,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"io"
+	"log"
 	"net"
 )
 
-//
-type server struct {
-	pb.UnimplementedIpcgrpcServer
-	//server *grpc.Server
+const WINSIZE = 4194304 // 1024 * 1024 * 4
 
+type stServer struct {
+	*pb.UnimplementedIpcgrpcServer
 	nReadCntTotal int
 	nSendCntTotal int
 	nDebugMode    int
@@ -35,45 +35,9 @@ type server struct {
 	err           error
 }
 
-const WINSIZE = 4194304 // 1024 * 1024 * 4
+func (svr *stServer) SendData(stream pb.Ipcgrpc_SendDataServer) error {
+	log.Println("start new server")
 
-func main() {
-
-	var (
-		err  error
-		opts []grpc.ServerOption
-	)
-
-	// 초기화
-	pstAddress := flag.String("add", "master:50057", "ip:port")
-	pnPackSize := flag.Int("size", 512, "packet size")
-	*pnPackSize = 512
-	pnDebugMode := flag.Int("debug", 0, "debug mode - 0,1,2")
-	flag.Parse()
-
-	// 연결 대기
-	listen, err := net.Listen("tcp", *pstAddress)
-	checkErr(0, "Listen", err)
-
-	opts = []grpc.ServerOption{grpc.MaxRecvMsgSize(WINSIZE), grpc.MaxSendMsgSize(WINSIZE)}
-	fmt.Printf("Start (%v)\n", *pstAddress)
-
-	// 호출 대기
-	s := grpc.NewServer(opts...)
-	pb.RegisterIpcgrpcServer(s, &server{nDebugMode: *pnDebugMode})
-	reflection.Register(s)
-	err = s.Serve(listen)
-	if err != nil {
-		fmt.Printf("[F] Serve\n")
-	}
-
-	// 종료
-	listen.Close()
-	fmt.Println("Stop")
-}
-
-//
-func (svr *server) SendData(stream pb.Ipcgrpc_SendDataServer) error {
 	for {
 		// 수신
 		svr.req, svr.err = stream.Recv()
@@ -97,8 +61,10 @@ func (svr *server) SendData(stream pb.Ipcgrpc_SendDataServer) error {
 
 			// 송신
 			svr.res = &pb.IpcReply{Bsres: svr.req.Bsreq[0:1]}
-			svr.err = stream.Send(svr.res)
-			checkErr(0, "Send", svr.err)
+			if svr.err = stream.Send(svr.res); svr.err != nil {
+				fmt.Printf("send error %v", svr.err)
+			}
+
 			svr.nSendCntTotal++
 			if svr.nDebugMode == 1 {
 				fmt.Printf("Send (SSz:%d) (SCT:%d)\n", len(svr.res.Bsres), svr.nSendCntTotal)
@@ -110,15 +76,36 @@ func (svr *server) SendData(stream pb.Ipcgrpc_SendDataServer) error {
 	return nil
 }
 
-// 에러 체크
-func checkErr(nMode int, strTitle string, err error) {
+func main() {
+	var (
+		err  error
+		opts []grpc.ServerOption
+	)
+
+	pstAddress := flag.String("add", "localhost:50057", "ip:port")
+	pnPackSize := flag.Int("size", 512, "packet size")
+	pnDebugMode := flag.Int("debug", 0, "debug mode - 0,1,2")
+	*pnPackSize = 512
+	flag.Parse()
+
+	lis, err := net.Listen("tcp", *pstAddress)
 	if err != nil {
-		fmt.Println(strTitle + " -> " + err.Error())
-		if nMode == 0 {
-			panic(err)
-		} else {
-		}
-	} else {
-		// 에러 아니여 ~
+		log.Fatalf("failed to listen: %v", err)
 	}
+	defer lis.Close()
+
+	opts = []grpc.ServerOption{grpc.MaxRecvMsgSize(WINSIZE), grpc.MaxSendMsgSize(WINSIZE)}
+
+	// gRPC 서버 생성
+	grpcServer := grpc.NewServer(opts...)
+
+	pb.RegisterIpcgrpcServer(grpcServer, &stServer{nReadCntTotal: 0, nSendCntTotal: 0, nDebugMode: *pnDebugMode,
+		req: nil, res: nil, err: nil})
+	reflection.Register(grpcServer)
+
+	log.Printf("start gRPC server on %s port", *pstAddress)
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %s", err)
+	}
+
 }
