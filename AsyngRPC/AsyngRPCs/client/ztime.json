@@ -1,0 +1,48 @@
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574005107514937" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":1, "packcnt":1, "escount":1, "estime":188165}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574005107559752" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":1, "packcnt":1, "escount":2, "estime":537393}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574020745582286" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":2, "packcnt":2, "escount":1, "estime":169856}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574020745624530" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":2, "packcnt":2, "escount":5, "estime":476390}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574022834598389" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":2, "packcnt":2, "escount":1, "estime":176152}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574022834638970" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":2, "packcnt":2, "escount":5, "estime":613811}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574042768628988" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":2, "packcnt":2, "escount":1, "estime":221849}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574042768664198" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":2, "packcnt":2, "escount":5, "estime":841208}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574052626601476" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":2, "packcnt":2, "escount":1, "estime":206652}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574052626643510" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":2, "packcnt":2, "escount":5, "estime":591608}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574165505992407" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":2, "packcnt":2, "escount":1, "estime":161020}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574165506062537" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":2, "packcnt":2, "escount":5, "estime":1237357}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574212918272466" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":10, "packcnt":2, "escount":1, "estime":165191}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574212918308068" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":10, "packcnt":2, "escount":10, "estime":2701382}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574212918319597" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":10, "packcnt":2, "escount":20, "estime":4324133}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584574212918324558" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":10, "packcnt":2, "escount":21, "estime":4525997}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584575196681431612" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":10, "packcnt":2, "escount":1, "estime":919082}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584575204695045688" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":10, "packcnt":2, "escount":1, "estime":6552085}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584575207505898983" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":10, "packcnt":2, "escount":1, "estime":8622891}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584575542932933229" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":10, "packcnt":2, "escount":1, "estime":10013376025}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584576071264670008" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":10, "packcnt":1000, "escount":1, "estime":1001562697}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584576071264730863" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":10, "packcnt":1000, "escount":10, "estime":5004663228}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584576071264737319" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":10, "packcnt":1000, "escount":10, "estime":5004663228}
+{ "index" : { "_index" : "commspeed", "_type" : "record", "_id" : "1584576071264740172" } }
+{"sender":"AsynTCP_none", "tls":"none", "sync":"async", "packsize":1024, "loopcnt":10, "packcnt":1000, "escount":13, "estime":10008823848}

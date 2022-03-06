@@ -53,15 +53,15 @@ func main() {
 		wgMain         sync.WaitGroup
 		startTime      time.Time
 		srtTimeElapeed []timeElapsed
-		nElapsedCnt    = 0
-		nElapsedIx     = 0
+		nElapsedCnt    int = 0
+		nElapsedIx     int = 0
 
-		nReadCntTotal, nSendCntTotal = 0, 0
-		ix                           = 0
+		nReadCntTotal, nSendCntTotal int = 0, 0
+		ix                           int = 0
 	)
 
 	// 초기화
-	pstAddress := flag.String("add", "master:50057", "ip:port")
+	pstAddress := flag.String("add", "192.168.124.131:50057", "ip:port")
 	pnPackSize := flag.Int("size", 512, "packet size")
 	pnPackCount := flag.Int("count", 1000000, "packet count")
 	pstLogTime := flag.String("logtime", "ztime.json", "logtime name")
@@ -72,8 +72,7 @@ func main() {
 		bsBufS[ix] = 'a'
 	}
 	req.Bsreq = bsBufS
-	//ctx, cancel := context.WithTimeout(context.Background(), time.Second*60000)
-	//defer cancel()
+
 	nElapsedCnt = *pnPackCount/1000 + 30
 	srtTimeElapeed = make([]timeElapsed, nElapsedCnt)
 	fpTime, _ := os.OpenFile(*pstLogTime, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -89,58 +88,59 @@ func main() {
 	startTime = time.Now()
 
 	// Loop 개수만큼 연결 끊기
-	for {
-		// 서버 연결
-		conn, err = grpc.Dial(*pstAddress, opts...)
-		if err != nil {
-			fmt.Printf("[F] Dial (%v)\n", err)
-			break
-		}
-		client = pb.NewIpcgrpcClient(conn)
+	// 서버 연결
+	conn, err = grpc.Dial(*pstAddress, opts...)
+	if err != nil {
+		fmt.Printf("[F] Dial (%v)\n", err)
+	}
+	client = pb.NewIpcgrpcClient(conn)
 
-		// 스트림 생성
-		//stream, err = client.SendData(ctx)
-		stream, err = client.SendData(context.Background())
-		if err != nil {
-			fmt.Printf("[F] SendDataCTX (%v)\n", err)
-			break
-		}
+	// 스트림 생성
+	//stream, err = client.SendData(ctx)
+	stream, err = client.SendData(context.Background())
+	if err != nil {
+		fmt.Printf("[F] SendDataCTX (%v)\n", err)
+		return
+	}
 
-		// 대기 등록
-		wgMain.Add(1)
+	// 대기 등록
+	wgMain.Add(2)
 
-		// 수신
-		go func() {
-			defer wgMain.Done()
+	// 수신
+	go func() {
+		defer wgMain.Done()
 
-			for {
-				res, err = stream.Recv()
-				if err == io.EOF {
-					if *pnDebugMode > 0 {
-						fmt.Printf("Read EOF\n\n")
-					}
+		for {
+			res, err = stream.Recv()
+			if err == io.EOF {
+				if *pnDebugMode > 0 {
+					fmt.Printf("Read EOF\n\n")
+				}
+				break
+			} else if err != nil {
+				fmt.Printf("Read ERR (%v)\n\n", err)
+				return
+			} else {
+				nReadCntTotal++
+				if *pnDebugMode == 1 {
+					fmt.Printf("Read (RSz:%d) (RCT:%d)\n", len(res.Bsres), nReadCntTotal)
+				} else if *pnDebugMode == 2 {
+					fmt.Printf("Read (RSz:%d) (RCT:%d)\n(%v)\n", len(res.Bsres), nReadCntTotal, res.Bsres)
+				}
+
+				// 빠져나가기
+				if nReadCntTotal >= *pnPackCount {
+					//fmt.Printf("[W] Read break (%d)(%d)\n", nReadSzSum, *pnPackCount)
 					break
-				} else if err != nil {
-					fmt.Printf("Read ERR (%v)\n\n", err)
-					return
-				} else {
-					nReadCntTotal++
-					if *pnDebugMode == 1 {
-						fmt.Printf("Read (RSz:%d) (RCT:%d)\n", len(res.Bsres), nReadCntTotal)
-					} else if *pnDebugMode == 2 {
-						fmt.Printf("Read (RSz:%d) (RCT:%d)\n(%v)\n", len(res.Bsres), nReadCntTotal, res.Bsres)
-					}
-
-					// 빠져나가기
-					if nReadCntTotal >= *pnPackCount {
-						//fmt.Printf("[W] Read break (%d)(%d)\n", nReadSzSum, *pnPackCount)
-						break
-					}
 				}
 			}
-		}()
+		}
+	}()
 
-		// 송신
+	// 송신
+	go func() {
+		defer wgMain.Done()
+
 		for ix = 0; ix < *pnPackCount; ix++ {
 			err = stream.Send(&req)
 			if err != nil {
@@ -169,20 +169,19 @@ func main() {
 				}
 			}
 		}
+	}()
 
-		// 대기
-		if *pnDebugMode > 0 {
-			fmt.Println("Wait")
-		}
-		wgMain.Wait()
-
-		// 종료
-		if *pnDebugMode > 0 {
-			fmt.Println("Stop")
-		}
-
-		conn.Close()
+	// 대기
+	if *pnDebugMode > 0 {
+		fmt.Println("Wait")
 	}
+	wgMain.Wait()
+
+	// 종료
+	if *pnDebugMode > 0 {
+		fmt.Println("Stop")
+	}
+	conn.Close()
 
 	// 타임로그 작성
 	if nElapsedIx < nElapsedCnt {
