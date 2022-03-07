@@ -12,6 +12,7 @@ service Ipcgrpc {
 // 요청 메시지
 message IpcRequest {
   bytes bsreq = 1;
+  int64 nsize = 2;
 }
 
 // 응답 메시지
