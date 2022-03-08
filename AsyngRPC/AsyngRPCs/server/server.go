@@ -30,6 +30,8 @@ type stServer struct {
 	nReadCntTotal int
 	nSendCntTotal int
 	nDebugMode    int
+	nReadSzTotal  int
+	nSendSzTotal  int
 	req           *pb.IpcRequest
 	res           *pb.IpcReply
 	err           error
@@ -38,8 +40,11 @@ type stServer struct {
 func (svr *stServer) SendData(stream pb.Ipcgrpc_SendDataServer) error {
 	log.Println("start new server")
 
+	//svr.nReadSzTotal, svr.nSendSzTotal = 0, 0
+
 	for {
 		// 수신
+
 		svr.req, svr.err = stream.Recv()
 		if svr.err == io.EOF {
 			if svr.nDebugMode > 0 {
@@ -53,10 +58,11 @@ func (svr *stServer) SendData(stream pb.Ipcgrpc_SendDataServer) error {
 			return svr.err
 		} else {
 			svr.nReadCntTotal++
+			svr.nReadSzTotal += int(svr.req.Nsize) //[swc-vvv]
 			if svr.nDebugMode == 1 {
-				fmt.Printf("Read (RSz:%d) (RCT:%d)\n", len(svr.req.Bsreq), svr.nReadCntTotal)
+				fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n", svr.req.Nsize, svr.nReadCntTotal, svr.nReadSzTotal)
 			} else if svr.nDebugMode == 2 {
-				fmt.Printf("Read (RSz:%d) (RCT:%d)\n(%v)\n", len(svr.req.Bsreq), svr.nReadCntTotal, svr.req.Bsreq)
+				fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n(%v)\n", svr.req.Nsize, svr.nReadCntTotal, svr.nReadSzTotal, svr.req.Bsreq)
 			}
 
 			// 송신
@@ -66,10 +72,11 @@ func (svr *stServer) SendData(stream pb.Ipcgrpc_SendDataServer) error {
 			}
 
 			svr.nSendCntTotal++
+			svr.nSendSzTotal += 1
 			if svr.nDebugMode == 1 {
-				fmt.Printf("Send (SSz:%d) (SCT:%d)\n", len(svr.res.Bsres), svr.nSendCntTotal)
+				fmt.Printf("Send (SSz:%d) (SCT:%d)(SST:%d)\n", 1, svr.nSendCntTotal, svr.nSendSzTotal)
 			} else if svr.nDebugMode == 2 {
-				fmt.Printf("Send (SSz:%d) (SCT:%d)\n(%v)\n", len(svr.res.Bsres), svr.nSendCntTotal, svr.res.Bsres)
+				fmt.Printf("Send (SSz:%d) (SCT:%d)(SST:%d)\n(%v)\n", 1, svr.nSendCntTotal, svr.nSendSzTotal, svr.res.Bsres)
 			}
 		}
 	}
