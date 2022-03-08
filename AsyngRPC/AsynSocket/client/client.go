@@ -43,11 +43,11 @@ func main() {
 		wgMain         sync.WaitGroup
 		startTime      time.Time
 		srtTimeElapsed []timeElapsed
-		nElapsedCnt    int = 0
-		nElapsedIx     int = 0
+		nElapsedCnt    = 0
+		nElapsedIx     = 0
 
-		nReadSzTotal, nReadCntTotal, nSendSzTotal, nSendCntTotal int = 0, 0, 0, 0
-		nReadSz, nSendSz, ix                                     int = 0, 0, 0
+		nReadSzTotal, nReadCntTotal, nSendSzTotal, nSendCntTotal = 0, 0, 0, 0
+		nReadSz, nSendSz, ix                                     = 0, 0, 0
 	)
 
 	// 초기화
