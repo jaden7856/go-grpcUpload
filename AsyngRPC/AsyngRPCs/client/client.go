@@ -72,6 +72,7 @@ func main() {
 		bsBufS[ix] = 'a'
 	}
 	req.Bsreq = bsBufS
+	req.Nsize = int64(*pnPackSize)
 
 	nElapsedCnt = *pnPackCount/1000 + 30
 	srtTimeElapeed = make([]timeElapsed, nElapsedCnt)
