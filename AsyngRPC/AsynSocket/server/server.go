@@ -43,7 +43,7 @@ func main() {
 	pnDebugMode := flag.Int("debug", 0, "debug mode - 0,1,2")
 	flag.Parse()
 	bsBufR := make([]byte, BUFSIZE)
-	bsBufQ := make([]byte, QUESIZE)
+	//bsBufQ := make([]byte, QUESIZE)
 	bsBufP := make([]byte, *pnPackSize)
 
 	// 연결 대기
@@ -68,16 +68,6 @@ func main() {
 		conn.(*net.TCPConn).SetReadBuffer(WINSIZE)
 		conn.(*net.TCPConn).SetWriteBuffer(WINSIZE)
 
-		//nTemp = nTemp + 1
-		//fmt.Printf("Accept (%v)\n", nTemp)
-
-		//var syncWait sync.WaitGroup
-		//syncWait.Add(1)
-		//
-		//go func() {
-		//	// 송수신
-		//	defer syncWait.Done()
-
 		for {
 			// 수신
 			nReadSz, err = conn.Read(bsBufR)
@@ -90,9 +80,9 @@ func main() {
 			nReadCntTotal++
 			nReadSzTotal += nReadSz
 			if *pnDebugMode == 1 {
-				fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n", nReadSz, nReadCntTotal, nReadSzTotal)
+				//fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n", nReadSz, nReadCntTotal, nReadSzTotal)
 			} else if *pnDebugMode == 2 {
-				fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n(%v)\n", nReadSz, nReadCntTotal, nReadSzTotal, bsBufR[:nReadSz])
+				//fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n(%v)\n", nReadSz, nReadCntTotal, nReadSzTotal, bsBufR[:nReadSz])
 			}
 
 			// 원형버퍼큐 저장
@@ -103,14 +93,14 @@ func main() {
 			}
 			nIxTemp = QUESIZE - nIxWrite
 			if nIxTemp >= nReadSz {
-				copy(bsBufQ[nIxWrite:], bsBufR[:nReadSz])
+				//copy(bsBufQ[nIxWrite:], bsBufR[:nReadSz])
 				nIxWrite += nReadSz
 				if nIxWrite >= QUESIZE {
 					nIxWrite = 0
 				}
 			} else {
-				copy(bsBufQ[nIxWrite:], bsBufR[:nIxTemp])
-				copy(bsBufQ[:], bsBufR[nIxTemp:nReadSz])
+				//copy(bsBufQ[nIxWrite:], bsBufR[:nIxTemp])
+				//copy(bsBufQ[:], bsBufR[nIxTemp:nReadSz])
 				nIxWrite = nReadSz - nIxTemp
 			}
 
@@ -124,15 +114,15 @@ func main() {
 				}
 				nIxTemp = QUESIZE - nIxRead
 				if nIxTemp >= *pnPackSize {
-					copy(bsBufP[:], bsBufQ[nIxRead:nIxRead+*pnPackSize])
+					//copy(bsBufP[:], bsBufQ[nIxRead:nIxRead+*pnPackSize])
 					nIxRead += *pnPackSize
 					if nIxRead >= QUESIZE {
 						nIxRead = 0
 					}
 				} else {
 					nIxMod = *pnPackSize - nIxTemp
-					copy(bsBufP[:], bsBufQ[nIxRead:])
-					copy(bsBufP[nIxTemp:], bsBufQ[:nIxMod])
+					//copy(bsBufP[:], bsBufQ[nIxRead:])
+					//copy(bsBufP[nIxTemp:], bsBufQ[:nIxMod])
 					nIxRead = nIxMod
 				}
 				nIxCount -= *pnPackSize
