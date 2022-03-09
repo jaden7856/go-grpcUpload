@@ -4,7 +4,7 @@ gsTarget=( "AsyngRPCs" "AsynSocket" )
 #gsCL=( "cnt" "lop")
 gnPort=50055
 
-pkill -9 go-client
+#  -9 go-client
 
 for sTarget in ${gsTarget[*]}
 do
@@ -14,7 +14,7 @@ do
 	if [ "$?" == "0" ]
 	then
 
-    for nSize in 32768 # 512 1024 2048 4096 8192 16384 32768 65536
+    for nSize in 1024 # 512 1024 2048 4096 8192 16384 32768 65536
     do
       let gnPort=gnPort+1
       let nCount=1000000
@@ -32,12 +32,15 @@ do
         do
           sLogName=ztime-$sTarget-$nSize.json
 
-          echo "./client/go-client-$sTarget -add=master:$gnPort -size=$nSize -count=$nCount -logtime=$sLogName -debug=0"
-          ./client/go-client-$sTarget -add=master:$gnPort -size=$nSize -count=$nCount -logtime=$sLogName -debug=0
+          echo `date +%Y%m%d%H%M%S`
+
+          echo "./client/go-client-$sTarget -add=master:$gnPort -size=$nSize -count=$nCount -logtime=$sLogName -debug=0 &"
+          ./client/go-client-$sTarget -add=master:$gnPort -size=$nSize -count=$nCount -logtime=$sLogName -debug=0 &
 
 #          echo "./client/client upload-test -add=localhost:$gnPort -d=/home/client-1/file/"
 #          ./client/client upload-test -add=localhost:$gnPort -d=/home/client-1/file/
 
+          echo `date +%Y%m%d%H%M%S`
 
           if [ "$?" == "0" ]
           then
