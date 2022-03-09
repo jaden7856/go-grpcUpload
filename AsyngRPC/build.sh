@@ -2,6 +2,9 @@
 
 #ziphome="/home/oracle/prj/bin"
 
+pkill -9 go-server
+pkill -9 go-client
+
 for sTarget in "AsynSocket" "AsyngRPCs"
 do
 	cd $sTarget
