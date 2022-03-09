@@ -3,7 +3,7 @@
 gsTarget=( "AsyngRPCs" "AsynSocket" )
 gnPort=50055
 
-pkill -9 go-server
+# pkill -9 go-server
 
 for sTarget in ${gsTarget[*]}
 do
@@ -12,7 +12,7 @@ do
 
 	if [ "$?" == "0" ]
 	then
-    for nSize in 32768 # 1024 2048 4096 8192 16384 32768 65536
+    for nSize in 1024 # 1024 2048 4096 8192 16384 32768 65536
     do
       let gnPort=gnPort+1
       echo "./server/go-server-$sTarget -add=master:$gnPort -size=$nSize -debug=0 &"
