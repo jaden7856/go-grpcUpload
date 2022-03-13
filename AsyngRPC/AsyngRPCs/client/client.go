@@ -22,13 +22,15 @@ package main
 import (
 	"flag"
 	"fmt"
-	pb "github.com/jaden7856/go-grpcUpload/AsyngRPC/AsyngRPCs/protobuf"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	"io"
 	"os"
 	"sync"
 	"time"
+
+	pb "github.com/jaden7856/go-grpcUpload/AsyngRPC/AsyngRPCs/protobuf"
+	"github.com/pkg/errors"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
 type timeElapsed struct {
@@ -38,8 +40,8 @@ type timeElapsed struct {
 
 const WINSIZE = 4194304 // 1024 * 1024 * 4
 
+//goland:noinspection ALL
 func main() {
-
 	// 변수 초기화
 	var (
 		err    error
@@ -53,11 +55,11 @@ func main() {
 		wgMain         sync.WaitGroup
 		startTime      time.Time
 		srtTimeElapeed []timeElapsed
-		nElapsedCnt    int = 0
-		nElapsedIx     int = 0
+		nElapsedCnt    = 0
+		nElapsedIx     = 0
 
-		nReadCntTotal, nSendCntTotal int = 0, 0
-		ix                           int = 0
+		nReadCntTotal, nSendCntTotal = 0, 0
+		ix                           = 0
 	)
 
 	// 초기화
@@ -97,7 +99,6 @@ func main() {
 	client = pb.NewIpcgrpcClient(conn)
 
 	// 스트림 생성
-	//stream, err = client.SendData(ctx)
 	stream, err = client.SendData(context.Background())
 	if err != nil {
 		fmt.Printf("[F] SendDataCTX (%v)\n", err)
@@ -113,28 +114,31 @@ func main() {
 
 		for {
 			res, err = stream.Recv()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
+				if err != nil {
+					fmt.Printf("Read ERR (%v)\n\n", err)
+					return
+				}
 				if *pnDebugMode > 0 {
 					fmt.Printf("Read EOF\n\n")
 				}
 				break
-			} else if err != nil {
-				fmt.Printf("Read ERR (%v)\n\n", err)
-				return
-			} else {
-				nReadCntTotal++
-				if *pnDebugMode == 1 {
-					fmt.Printf("Read (RSz:%d) (RCT:%d)\n", len(res.Bsres), nReadCntTotal)
-				} else if *pnDebugMode == 2 {
-					fmt.Printf("Read (RSz:%d) (RCT:%d)\n(%v)\n", len(res.Bsres), nReadCntTotal, res.Bsres)
-				}
+			}
+			nReadCntTotal++
+			switch *pnDebugMode {
+			case 1:
+				fmt.Printf("Read (RSz:%d) (RCT:%d)\n", len(res.Bsres), nReadCntTotal)
+			case 2:
+				fmt.Printf("Read (RSz:%d) (RCT:%d)\n(%v)\n", len(res.Bsres), nReadCntTotal, res.Bsres)
+			}
 
-				// 빠져나가기
+			// 빠져나가기
+			/*
 				if nReadCntTotal >= *pnPackCount {
-					//fmt.Printf("[W] Read break (%d)(%d)\n", nReadSzSum, *pnPackCount)
+					fmt.Printf("[W] Read break (%d)(%d)\n", nReadSzSum, *pnPackCount)
 					break
 				}
-			}
+			*/
 		}
 	}()
 
@@ -145,7 +149,7 @@ func main() {
 		for ix = 0; ix < *pnPackCount; ix++ {
 			err = stream.Send(&req)
 			if err != nil {
-				//fmt.Printf("[F] Send ERR (%v)\n", err)
+				fmt.Printf("[F] Send ERR (%v)\n", err)
 				break
 			} else {
 				nSendCntTotal++
