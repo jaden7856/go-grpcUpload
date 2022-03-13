@@ -15,12 +15,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	pb "github.com/jaden7856/go-grpcUpload/AsyngRPC/AsyngRPCs/protobuf"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 	"io"
 	"log"
 	"net"
+
+	pb "github.com/jaden7856/go-grpcUpload/AsyngRPC/AsyngRPCs/protobuf"
+	"github.com/pkg/errors"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 const WINSIZE = 4194304 // 1024 * 1024 * 4
@@ -39,45 +41,44 @@ type stServer struct {
 
 func (svr *stServer) SendData(stream pb.Ipcgrpc_SendDataServer) error {
 	log.Println("start new server")
-
-	//svr.nReadSzTotal, svr.nSendSzTotal = 0, 0
-
 	for {
 		// 수신
-
 		svr.req, svr.err = stream.Recv()
-		if svr.err == io.EOF {
-			if svr.nDebugMode > 0 {
-				fmt.Printf("Read EOF\n\n")
+		if svr.err != nil {
+			if errors.Is(svr.err, io.EOF) {
+				if svr.nDebugMode > 0 {
+					fmt.Printf("Read EOF\n\n")
+				}
+				break
 			}
-			break
-		} else if svr.err != nil {
 			if svr.nDebugMode > 0 {
 				fmt.Printf("Read ERR (%v)\n\n", svr.err)
 			}
 			return svr.err
-		} else {
-			svr.nReadCntTotal++
-			svr.nReadSzTotal += int(svr.req.Nsize) //[swc-vvv]
-			if svr.nDebugMode == 1 {
-				fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n", svr.req.Nsize, svr.nReadCntTotal, svr.nReadSzTotal)
-			} else if svr.nDebugMode == 2 {
-				fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n(%v)\n", svr.req.Nsize, svr.nReadCntTotal, svr.nReadSzTotal, svr.req.Bsreq)
-			}
+		}
 
-			// 송신
-			svr.res = &pb.IpcReply{Bsres: svr.req.Bsreq[0:1]}
-			if svr.err = stream.Send(svr.res); svr.err != nil {
-				fmt.Printf("send error %v", svr.err)
-			}
+		svr.nReadCntTotal++
+		svr.nReadSzTotal += int(svr.req.Nsize) // [swc-vvv]
+		switch svr.nDebugMode {
+		case 1:
+			fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n", svr.req.Nsize, svr.nReadCntTotal, svr.nReadSzTotal)
+		case 2:
+			fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n(%v)\n", svr.req.Nsize, svr.nReadCntTotal, svr.nReadSzTotal, svr.req.Bsreq)
+		}
+		// 송신
+		svr.res = &pb.IpcReply{Bsres: svr.req.Bsreq[0:1]}
+		if svr.err = stream.Send(svr.res); svr.err != nil {
+			fmt.Printf("send error %v", svr.err)
+		}
 
-			svr.nSendCntTotal++
-			svr.nSendSzTotal += 1
-			if svr.nDebugMode == 1 {
-				fmt.Printf("Send (SSz:%d) (SCT:%d)(SST:%d)\n", 1, svr.nSendCntTotal, svr.nSendSzTotal)
-			} else if svr.nDebugMode == 2 {
-				fmt.Printf("Send (SSz:%d) (SCT:%d)(SST:%d)\n(%v)\n", 1, svr.nSendCntTotal, svr.nSendSzTotal, svr.res.Bsres)
-			}
+		svr.nSendCntTotal++
+		svr.nSendSzTotal++
+
+		switch svr.nDebugMode {
+		case 1:
+			fmt.Printf("Send (SSz:%d) (SCT:%d)(SST:%d)\n", 1, svr.nSendCntTotal, svr.nSendSzTotal)
+		case 2:
+			fmt.Printf("Send (SSz:%d) (SCT:%d)(SST:%d)\n(%v)\n", 1, svr.nSendCntTotal, svr.nSendSzTotal, svr.res.Bsres)
 		}
 	}
 	return nil
@@ -114,5 +115,4 @@ func main() {
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %s", err)
 	}
-
 }
