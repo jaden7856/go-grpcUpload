@@ -40,14 +40,6 @@ $ ./client-linux upload  -a <ip:port> -d <folder containing files to upload>
 Eg  ./client-linux upload -a localhost:8080 -d /home/
 ```
 
-
-
-###### 참조
-
-https://github.com/rickslick/grpcUpload
-
-
-
 <br>
 
 <br>
