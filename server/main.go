@@ -9,10 +9,13 @@ import (
 func main() {
 	app := cli.NewApp()
 	app.Name = "Server"
-	app.Usage = "Multi File Transferer Server"
+	app.Usage = "Multi File Transferred Server"
 	app.Version = "0.0.1"
 	app.Commands = []cli.Command{
 		ServerCommand(),
 	}
-	app.Run(os.Args)
+	err := app.Run(os.Args)
+	if err != nil {
+		return
+	}
 }

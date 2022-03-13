@@ -52,7 +52,7 @@ type ServerGRPCConfig struct {
 func NewServerGRPC(cfg ServerGRPCConfig) (s ServerGRPC, err error) {
 	// 주소 입력 여부 확인
 	if cfg.Address == "" {
-		err = errors.Errorf("Address must be specified")
+		err = errors.Errorf("address must be specified")
 		return
 	}
 
@@ -110,14 +110,13 @@ func writeToFp(fp *os.File, data []byte) error {
 	for {
 		nw, err := fp.Write(data[w:])
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "failed write data")
 		}
 		w += nw
 		if nw >= n {
 			return nil
 		}
 	}
-
 }
 
 //goland:noinspection ALL
@@ -134,7 +133,8 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 		fileData, err = stream.Recv()
 		if err != nil {
 			// 더이상 들어오는 파일이없으면 for문 break
-			if err == io.EOF {
+			// err == io.EOF 와 같은 의미 -> 클린소스
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			err = errors.Wrapf(err, "failed while reading from stream")
@@ -142,8 +142,7 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 		}
 
 		if firstChunk {
-
-			//create file
+			// create file
 			if fileData.Filename != "" {
 				fp, err = os.Create(path.Join(s.destDir, filepath.Base(fileData.Filename)))
 				if err != nil {
@@ -154,15 +153,13 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 					})
 					return
 				}
-				defer fp.Close()
-
-			} else {
+				fp.Close()
+			} else if fileData.Filename == "" {
 				fmt.Println("FileName not provided in first chunk : " + fileData.Filename)
 				stream.SendAndClose(&streamPb.UploadResponse{
 					Message: "FileName not provided in first chunk : " + fileData.Filename,
 					Code:    streamPb.UploadStatusCode_Failed,
 				})
-
 				return
 			}
 			filename = fileData.Filename
@@ -199,8 +196,6 @@ func (s *ServerGRPC) Close() {
 	if s.server != nil {
 		s.server.Stop()
 	}
-
-	return
 }
 
 func ServerCommand() cli.Command {
@@ -232,6 +227,9 @@ func ServerCommand() cli.Command {
 
 			server := &grpcServer
 			err = server.Listen()
+			if err != nil {
+				return err
+			}
 
 			defer server.Close()
 			return nil
