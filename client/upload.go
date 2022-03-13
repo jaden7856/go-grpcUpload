@@ -52,7 +52,10 @@ func NewUploader(ctx context.Context, client streamPb.UploadFileServiceClient, d
 	// 한번에 몇개의 파일을 보낼지
 	for i := 0; i < 5; i++ {
 		d.wg.Add(1)
-		go d.worker(i + 1)
+		err := d.worker(i + 1)
+		if err != nil {
+			_ = errors.Wrapf(err, "worker methods is not running")
+		}
 	}
 
 	d.pool, _ = pb.StartPool()
@@ -68,11 +71,13 @@ func (d *uploader) Stop() {
 	close(d.requests)
 	d.wg.Wait()
 	d.pool.RefreshRate = 500 * time.Millisecond
-	d.pool.Stop()
+	if err := d.pool.Stop(); err != nil {
+		_ = errors.Wrapf(err, "pool was failed stoping")
+	}
 }
 
 //goland:noinspection ALL
-func (d *uploader) worker(workerID int) {
+func (d *uploader) worker(_ int) error {
 	defer d.wg.Done()
 	var (
 		buf        []byte
@@ -81,32 +86,21 @@ func (d *uploader) worker(workerID int) {
 
 	// 파일 경로에서 파일들을 추출
 	for request := range d.requests {
-		file, errOpen := os.Open(request)
-		if errOpen != nil {
-			errOpen = errors.Wrapf(errOpen,
-				"failed to open file %s",
-				request)
-			return
+		file, err := os.Open(request)
+		if err != nil {
+			return errors.Wrapf(err, "failed to open file %s", request)
 		}
-		defer file.Close()
 
-		//start uploader
+		// start uploader
 		stream, err := d.client.Upload(d.ctx)
 		if err != nil {
-			err = errors.Wrapf(err,
-				"failed to create upload stream for file %s",
-				request)
-			return
+			return errors.Wrapf(err, "failed to create upload stream for file %s", request)
 		}
-		defer stream.CloseSend()
 
 		// file info
-		stat, errstat := file.Stat()
-		if errstat != nil {
-			err = errors.Wrapf(err,
-				"Unable to get file size  %s",
-				request)
-			return
+		stat, err := file.Stat()
+		if err != nil {
+			return errors.Wrapf(err, "unable to get file size  %s", request)
 		}
 
 		// client 측에서 server에 send할때 진행률 bar 표시
@@ -119,14 +113,12 @@ func (d *uploader) worker(workerID int) {
 		firstChunk = true
 		for {
 			// 파일의 내용을 읽어서 바이트 슬라이스에 저장
-			f, errRead := file.Read(buf)
-			if errRead != nil {
-				if errRead == io.EOF {
-					errRead = nil
+			f, err := file.Read(buf)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
 					break
 				}
-				errRead = errors.Wrapf(err, "errored while copying from file to buf")
-				return
+				return errors.Wrapf(err, "errored while copying from file to buf")
 			}
 
 			if firstChunk {
@@ -151,24 +143,26 @@ func (d *uploader) worker(workerID int) {
 		// 클라이언트에서 send를 완료하고 서버에서 다 받고나서 완료 메세지를 보내면
 		// 그 메세지를 받아서 상태를 체크
 		status, err := stream.CloseAndRecv()
-		if err != nil { //retry needed
+		if err != nil { // retry needed
 			fmt.Println("failed to receive upstream status response")
 			bar.FinishPrint("Error uploading file : " + request + " Error :" + err.Error())
 			bar.Reset(0)
 			d.FailRequest <- request
-			return
+			return nil
 		}
 
-		if status.Code != streamPb.UploadStatusCode_Ok { //retry needed
+		if status.Code != streamPb.UploadStatusCode_Ok { // retry needed
 			fmt.Printf("Error uploading file : " + request + " :" + status.Message)
 			bar.Reset(0)
 			d.FailRequest <- request
-			return
+			return nil
 		}
 
+		file.Close()
 		d.DoneRequest <- request
 		bar.Finish()
 	}
+	return nil
 }
 
 func UploadFile(ctx context.Context, client streamPb.UploadFileServiceClient, filePathList []string, dir string) error {
@@ -178,7 +172,7 @@ func UploadFile(ctx context.Context, client streamPb.UploadFileServiceClient, fi
 	if dir != "" {
 		files, err := ioutil.ReadDir(dir)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "can't read th dir")
 		}
 		defer d.Stop()
 
@@ -199,12 +193,10 @@ func UploadFile(ctx context.Context, client streamPb.UploadFileServiceClient, fi
 				case req := <-d.FailRequest:
 					fmt.Println("failed to  send " + req)
 					errorUploadBulk = errors.Wrapf(errorUploadBulk, " Failed to send %s", req)
-
 				}
 			}
 		}
 		fmt.Println("All done ")
-
 	} else {
 		go func() {
 			for _, file := range filePathList {
@@ -219,7 +211,6 @@ func UploadFile(ctx context.Context, client streamPb.UploadFileServiceClient, fi
 			case req := <-d.FailRequest:
 				fmt.Println("failed to send " + req)
 				errorUploadBulk = errors.Wrapf(errorUploadBulk, " Failed to send %s", req)
-
 			}
 		}
 	}
