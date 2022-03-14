@@ -13,8 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 )
 
@@ -35,9 +33,14 @@ var kasp = keepalive.ServerParameters{
 	Timeout: 1 * time.Second,
 }
 
+var (
+	fp       *os.File
+	fileData *streamPb.UploadRequest
+	filename string
+)
+
 type ServerGRPC struct {
 	streamPb.UnimplementedUploadFileServiceServer
-	healthpb.UnimplementedHealthServer
 	server *grpc.Server
 
 	Address string
@@ -69,12 +72,7 @@ func NewServerGRPC(cfg ServerGRPCConfig) (s ServerGRPC, err error) {
 }
 
 func (s *ServerGRPC) Listen() (err error) {
-	var (
-		lis         net.Listener
-		serviceName = "test"
-	)
-
-	lis, err = net.Listen("tcp", s.Address)
+	lis, err := net.Listen("tcp", s.Address)
 	if err != nil {
 		err = errors.Wrapf(err, "failed to listen on  %s", s.Address)
 		return
@@ -86,19 +84,15 @@ func (s *ServerGRPC) Listen() (err error) {
 		grpc.KeepaliveEnforcementPolicy(kaep),
 		grpc.KeepaliveParams(kasp),
 	)
-	// healthCheck 서버 생성
-	healthServer := health.NewServer()
-	healthpb.RegisterHealthServer(s.server, healthServer)
+
+	// gRPC 서버 등록
 	streamPb.RegisterUploadFileServiceServer(s.server, s)
 
 	if err = s.server.Serve(lis); err != nil {
 		err = errors.Wrapf(err, "errored listening for grpc connections")
-		healthServer.SetServingStatus(serviceName, healthpb.HealthCheckResponse_NOT_SERVING)
 		return
 	}
 
-	// 정상적으로 연결이 된 상태
-	healthServer.SetServingStatus(serviceName, healthpb.HealthCheckResponse_SERVING)
 	return
 }
 
@@ -123,12 +117,6 @@ func writeToFp(fp *os.File, data []byte) error {
 func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err error) {
 	firstChunk := true
 
-	var (
-		fp       *os.File
-		fileData *streamPb.UploadRequest
-		filename string
-	)
-
 	for {
 		fileData, err = stream.Recv()
 		if err != nil {
@@ -141,34 +129,34 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 			return
 		}
 
+		filename = fileData.Filename
+
 		if firstChunk {
 			// create file
-			if fileData.Filename != "" {
-				fp, err = os.Create(path.Join(s.destDir, filepath.Base(fileData.Filename)))
+			if filename != "" {
+				fp, err = os.Create(path.Join(s.destDir, filepath.Base(filename)))
 				if err != nil {
-					fmt.Println("Unable to create file : " + fileData.Filename)
+					fmt.Println("Unable to create file : " + filename)
 					stream.SendAndClose(&streamPb.UploadResponse{
-						Message: "Unable to create file : " + fileData.Filename,
+						Message: "Unable to create file : " + filename,
 						Code:    streamPb.UploadStatusCode_Failed,
 					})
 					return
 				}
 				fp.Close()
-			} else if fileData.Filename == "" {
-				fmt.Println("FileName not provided in first chunk : " + fileData.Filename)
+			} else if filename == "" {
+				fmt.Println("FileName not provided in first chunk : " + filename)
 				stream.SendAndClose(&streamPb.UploadResponse{
-					Message: "FileName not provided in first chunk : " + fileData.Filename,
+					Message: "FileName not provided in first chunk : " + filename,
 					Code:    streamPb.UploadStatusCode_Failed,
 				})
 				return
 			}
-			filename = fileData.Filename
 			firstChunk = false
 		}
 
-		// 생성된 파일에 data의 내용들을 쓴다.
-		err = writeToFp(fp, fileData.Content)
-		if err != nil {
+		// 생성된 파일에 전송된 data들을 write하고, 에러 발생시 전송 후 종료
+		if err = writeToFp(fp, fileData.Content); err != nil {
 			fmt.Println("Unable to write chunk of filename : " + filename + " " + err.Error())
 			stream.SendAndClose(&streamPb.UploadResponse{
 				Message: "Unable to write chunk of filename : " + filename,
@@ -179,15 +167,14 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 	}
 
 	// 정상적으로 다 파일을 받고나서 클아이언트에 정상적으로 완료가 되었다는 메세지를 전달
-	err = stream.SendAndClose(&streamPb.UploadResponse{
+	if err = stream.SendAndClose(&streamPb.UploadResponse{
 		Message: "Upload received with success",
 		Code:    streamPb.UploadStatusCode_Ok,
-	})
-
-	if err != nil {
+	}); err != nil {
 		err = errors.Wrapf(err, "failed to send status code")
 		return
 	}
+
 	fmt.Println("Successfully received :" + filename + " in " + s.destDir)
 	return
 }
@@ -221,14 +208,12 @@ func ServerCommand() cli.Command {
 			})
 			if err != nil {
 				fmt.Println("error is creating server")
-
 				return err
 			}
 
 			server := &grpcServer
-			err = server.Listen()
-			if err != nil {
-				return err
+			if err = server.Listen(); err != nil {
+				return errors.Wrapf(err, "can't connect with client")
 			}
 
 			defer server.Close()
