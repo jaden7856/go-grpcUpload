@@ -14,8 +14,7 @@ func main() {
 	app.Commands = []cli.Command{
 		uploadCommand(),
 	}
-	err := app.Run(os.Args)
-	if err != nil {
+	if err := app.Run(os.Args); err != nil {
 		return
 	}
 }

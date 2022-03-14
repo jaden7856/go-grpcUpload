@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"google.golang.org/grpc"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 )
 
@@ -27,6 +26,12 @@ var kacp = keepalive.ClientParameters{
 	Timeout:             time.Second,      // 연결이 끊어진 것으로 간주하기 전에 ping ack 을 1초 동안 기다립니다.
 	PermitWithoutStream: true,             // 활성 스트림 없이도 ping 보내기
 }
+
+var (
+	buf             []byte
+	firstChunk      bool
+	errorUploadBulk error
+)
 
 type uploader struct {
 	dir    string
@@ -79,10 +84,6 @@ func (d *uploader) Stop() {
 //goland:noinspection ALL
 func (d *uploader) worker(_ int) error {
 	defer d.wg.Done()
-	var (
-		buf        []byte
-		firstChunk bool
-	)
 
 	// 파일 경로에서 파일들을 추출
 	for request := range d.requests {
@@ -167,7 +168,6 @@ func (d *uploader) worker(_ int) error {
 
 func UploadFile(ctx context.Context, client streamPb.UploadFileServiceClient, filePathList []string, dir string) error {
 	d := NewUploader(ctx, client, dir)
-	var errorUploadBulk error
 
 	if dir != "" {
 		files, err := ioutil.ReadDir(dir)
@@ -256,17 +256,6 @@ func uploadCommand() cli.Command {
 					fmt.Println("faild conn close")
 				}
 			}(conn)
-
-			resp, err := healthpb.NewHealthClient(conn).Check(context.Background(),
-				&healthpb.HealthCheckRequest{
-					Service: "test",
-				})
-
-			if err != nil {
-				log.Printf("can't connect grpc server: %v", err)
-			} else {
-				log.Printf("status: %s", resp.GetStatus().String())
-			}
 
 			return UploadFile(
 				context.Background(),
