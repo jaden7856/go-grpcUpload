@@ -28,9 +28,9 @@ var kacp = keepalive.ClientParameters{
 }
 
 var (
-	buf             []byte
-	firstChunk      bool
-	errorUploadBulk error
+	buf        []byte
+	firstChunk bool
+	errUpload  error
 )
 
 type uploader struct {
@@ -45,7 +45,7 @@ type uploader struct {
 	FailRequest chan string
 }
 
-func NewUploader(ctx context.Context, client streamPb.UploadFileServiceClient, dir string) *uploader {
+func NewUploader(ctx context.Context, client streamPb.UploadFileServiceClient, dir string) (*uploader, error) {
 	d := &uploader{
 		ctx:         ctx,
 		client:      client,
@@ -64,7 +64,7 @@ func NewUploader(ctx context.Context, client streamPb.UploadFileServiceClient, d
 	}
 
 	d.pool, _ = pb.StartPool()
-	return d
+	return d, errors.New("not worked newUploader")
 }
 
 func (d *uploader) Do(filepath string) {
@@ -167,7 +167,10 @@ func (d *uploader) worker(_ int) error {
 }
 
 func UploadFile(ctx context.Context, client streamPb.UploadFileServiceClient, filePathList []string, dir string) error {
-	d := NewUploader(ctx, client, dir)
+	d, err := NewUploader(ctx, client, dir)
+	if err != nil {
+		errUpload = errors.Wrapf(err, "failed NewUploader")
+	}
 
 	if dir != "" {
 		files, err := ioutil.ReadDir(dir)
@@ -192,7 +195,7 @@ func UploadFile(ctx context.Context, client streamPb.UploadFileServiceClient, fi
 
 				case req := <-d.FailRequest:
 					fmt.Println("failed to  send " + req)
-					errorUploadBulk = errors.Wrapf(errorUploadBulk, " Failed to send %s", req)
+					errUpload = errors.Wrapf(errUpload, " Failed to send %s", req)
 				}
 			}
 		}
@@ -210,12 +213,12 @@ func UploadFile(ctx context.Context, client streamPb.UploadFileServiceClient, fi
 			case <-d.DoneRequest:
 			case req := <-d.FailRequest:
 				fmt.Println("failed to send " + req)
-				errorUploadBulk = errors.Wrapf(errorUploadBulk, " Failed to send %s", req)
+				errUpload = errors.Wrapf(errUpload, " Failed to send %s", req)
 			}
 		}
 	}
 
-	return errorUploadBulk
+	return errUpload
 }
 
 //goland:noinspection ALL
