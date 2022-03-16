@@ -27,12 +27,6 @@ var kacp = keepalive.ClientParameters{
 	PermitWithoutStream: true,             // 활성 스트림 없이도 ping 보내기
 }
 
-var (
-	buf        []byte
-	firstChunk bool
-	errUpload  error
-)
-
 type uploader struct {
 	dir    string
 	client streamPb.UploadFileServiceClient
@@ -45,7 +39,7 @@ type uploader struct {
 	FailRequest chan string
 }
 
-func NewUploader(ctx context.Context, client streamPb.UploadFileServiceClient, dir string) (*uploader, error) {
+func NewUploader(ctx context.Context, client streamPb.UploadFileServiceClient, dir string) *uploader {
 	d := &uploader{
 		ctx:         ctx,
 		client:      client,
@@ -57,14 +51,15 @@ func NewUploader(ctx context.Context, client streamPb.UploadFileServiceClient, d
 	// 한번에 몇개의 파일을 보낼지
 	for i := 0; i < 5; i++ {
 		d.wg.Add(1)
-		err := d.worker(i + 1)
-		if err != nil {
-			_ = errors.Wrapf(err, "worker methods is not running")
-		}
+		go func(i int) {
+			if err := d.worker(i + 1); err != nil {
+				_ = errors.Wrapf(err, "worker methods is not running")
+			}
+		}(i)
 	}
 
 	d.pool, _ = pb.StartPool()
-	return d, errors.New("not worked newUploader")
+	return d
 }
 
 func (d *uploader) Do(filepath string) {
@@ -83,6 +78,10 @@ func (d *uploader) Stop() {
 
 //goland:noinspection ALL
 func (d *uploader) worker(_ int) error {
+	var (
+		buf        []byte
+		firstChunk bool
+	)
 	defer d.wg.Done()
 
 	// 파일 경로에서 파일들을 추출
@@ -143,17 +142,9 @@ func (d *uploader) worker(_ int) error {
 
 		// 클라이언트에서 send를 완료하고 서버에서 다 받고나서 완료 메세지를 보내면
 		// 그 메세지를 받아서 상태를 체크
-		status, err := stream.CloseAndRecv()
-		if err != nil { // retry needed
-			fmt.Println("failed to receive upstream status response")
-			bar.FinishPrint("Error uploading file : " + request + " Error :" + err.Error())
-			bar.Reset(0)
-			d.FailRequest <- request
-			return nil
-		}
-
-		if status.Code != streamPb.UploadStatusCode_Ok { // retry needed
+		if status, err := stream.CloseAndRecv(); err != nil || status.Code != streamPb.UploadStatusCode_Ok {
 			fmt.Printf("Error uploading file : " + request + " :" + status.Message)
+			bar.FinishPrint("Error uploading file : " + request + " Error :" + err.Error())
 			bar.Reset(0)
 			d.FailRequest <- request
 			return nil
@@ -167,10 +158,9 @@ func (d *uploader) worker(_ int) error {
 }
 
 func UploadFile(ctx context.Context, client streamPb.UploadFileServiceClient, filePathList []string, dir string) error {
-	d, err := NewUploader(ctx, client, dir)
-	if err != nil {
-		errUpload = errors.Wrapf(err, "failed NewUploader")
-	}
+	var errUpload error
+
+	d := NewUploader(ctx, client, dir)
 
 	if dir != "" {
 		files, err := ioutil.ReadDir(dir)
@@ -217,7 +207,6 @@ func UploadFile(ctx context.Context, client streamPb.UploadFileServiceClient, fi
 			}
 		}
 	}
-
 	return errUpload
 }
 
@@ -254,8 +243,7 @@ func uploadCommand() cli.Command {
 				log.Fatalf("failed to listen: %v", err)
 			}
 			defer func(conn *grpc.ClientConn) {
-				err := conn.Close()
-				if err != nil {
+				if err := conn.Close(); err != nil {
 					fmt.Println("faild conn close")
 				}
 			}(conn)
