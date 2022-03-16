@@ -33,12 +33,6 @@ var kasp = keepalive.ServerParameters{
 	Timeout: 1 * time.Second,
 }
 
-var (
-	fp       *os.File
-	fileData *streamPb.UploadRequest
-	filename string
-)
-
 type ServerGRPC struct {
 	streamPb.UnimplementedUploadFileServiceServer
 	server *grpc.Server
@@ -115,6 +109,12 @@ func writeToFp(fp *os.File, data []byte) error {
 
 //goland:noinspection ALL
 func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err error) {
+	var (
+		fp       *os.File
+		fileData *streamPb.UploadRequest
+		filename string
+	)
+
 	firstChunk := true
 
 	for {
@@ -132,22 +132,21 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 		filename = fileData.Filename
 
 		if firstChunk {
-			// create file
-			if filename != "" {
-				fp, err = os.Create(path.Join(s.destDir, filepath.Base(filename)))
-				if err != nil {
-					fmt.Println("Unable to create file : " + filename)
-					stream.SendAndClose(&streamPb.UploadResponse{
-						Message: "Unable to create file : " + filename,
-						Code:    streamPb.UploadStatusCode_Failed,
-					})
-					return
-				}
-				fp.Close()
-			} else if filename == "" {
+			if filename == "" {
 				fmt.Println("FileName not provided in first chunk : " + filename)
 				stream.SendAndClose(&streamPb.UploadResponse{
 					Message: "FileName not provided in first chunk : " + filename,
+					Code:    streamPb.UploadStatusCode_Failed,
+				})
+				return
+			}
+
+			// create file
+			fp, err = os.Create(path.Join(s.destDir, filepath.Base(filename)))
+			if err != nil {
+				fmt.Println("Unable to create file : " + filename)
+				stream.SendAndClose(&streamPb.UploadResponse{
+					Message: "Unable to create file : " + filename,
 					Code:    streamPb.UploadStatusCode_Failed,
 				})
 				return
@@ -165,6 +164,8 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 			return
 		}
 	}
+	// file close -> for문 안에서 defer를 사용시 루프 내부에서 생성된 리소스를 닫지 않는다.
+	fp.Close()
 
 	// 정상적으로 다 파일을 받고나서 클아이언트에 정상적으로 완료가 되었다는 메세지를 전달
 	if err = stream.SendAndClose(&streamPb.UploadResponse{
