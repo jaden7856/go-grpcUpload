@@ -35,7 +35,6 @@ type timeElapsed struct {
 const WINSIZE = 4194304 // 1024 * 1024 * 4
 
 func main() {
-
 	var (
 		err    error
 		client net.Conn
@@ -70,13 +69,10 @@ func main() {
 
 	fpTime, _ := os.OpenFile(*pstLogTime, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	defer func(fpTime *os.File) {
-		err := fpTime.Close()
-		if err != nil {
-
+		if err := fpTime.Close(); err != nil {
+			fmt.Println("Failed open file")
 		}
 	}(fpTime)
-
-	fmt.Println("Begin")
 
 	// 시작 시간
 	startTime = time.Now()
@@ -86,9 +82,13 @@ func main() {
 	if err != nil {
 		fmt.Printf("[F] Dial (%v)\n", err)
 	}
-	client.(*net.TCPConn).SetReadBuffer(WINSIZE)
-	client.(*net.TCPConn).SetWriteBuffer(WINSIZE)
 
+	if err = client.(*net.TCPConn).SetReadBuffer(WINSIZE); err != nil {
+		fmt.Printf("SetReadBuffer err %s", err)
+	}
+	if err = client.(*net.TCPConn).SetWriteBuffer(WINSIZE); err != nil {
+		fmt.Printf("SetWriteBuffer err %s", err)
+	}
 	if *pnDebugMode > 0 {
 		fmt.Printf("Start (%s)\n", *pstAddress)
 	}
@@ -108,19 +108,19 @@ func main() {
 			}
 			nReadCntTotal++
 			nReadSzTotal += nReadSz
-			if *pnDebugMode == 1 {
+
+			switch *pnDebugMode {
+			case 1:
 				fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n", nReadSz, nReadCntTotal, nReadSzTotal)
-			} else if *pnDebugMode == 2 {
+			case 2:
 				fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n(%v)\n", nReadSz, nReadCntTotal, nReadSzTotal, bsBufR[:nReadSz])
 			}
 
 			// 빠져나가기
 			if nReadSzTotal >= *pnPackCount {
-				//fmt.Printf("[W] Read break (%d)(%d)\n", nReadSzTotal, *pnPackCount)
 				break
 			}
 		}
-
 	}()
 
 	// 송신
@@ -136,9 +136,11 @@ func main() {
 			}
 			nSendCntTotal++
 			nSendSzTotal += nSendSz
-			if *pnDebugMode == 1 {
+
+			switch *pnDebugMode {
+			case 1:
 				fmt.Printf("Write (SSz:%d) (SCT:%d)(SST:%d)\n", nSendSz, nSendCntTotal, nSendSzTotal)
-			} else if *pnDebugMode == 2 {
+			case 2:
 				fmt.Printf("Write (SSz:%d) (SCT:%d)(SST:%d)\n(%v)\n", nSendSz, nSendCntTotal, nSendSzTotal, bsBufS)
 			}
 
