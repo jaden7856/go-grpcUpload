@@ -20,21 +20,21 @@ import (
 	"net"
 )
 
-const BUFSIZE = 8388608  // 1024 * 1024 * 8
-const QUESIZE = 41943040 // 1024 * 1024 * 8 * 5
-const WINSIZE = 4194304  // 1024 * 1024 * 4
+const (
+	BUFSIZE = 8388608  // 1024 * 1024 * 8
+	QUESIZE = 41943040 // 1024 * 1024 * 8 * 5
+	WINSIZE = 4194304  // 1024 * 1024 * 4
+)
 
 func main() {
-
 	var (
 		err    error
 		listen net.Listener
 		conn   net.Conn
 
-		nReadSzTotal, nReadCntTotal, nSendSzTotal, nSendCntTotal = 0, 0, 0, 0
-		nReadSz, nSendSz                                         = 0, 0
-		nIxRead, nIxWrite, nIxCount, nIxTemp, nIxMod             = 0, 0, 0, 0, 0
-		//nTemp                                                    = 0
+		nReadSzTotal, nReadCntTotal, nSendSzTotal, nSendCntTotal int
+		nReadSz, nSendSz                                         int
+		nIxRead, nIxWrite, nIxCount, nIxTemp, nIxMod             int
 	)
 
 	// 초기화
@@ -42,15 +42,17 @@ func main() {
 	pnPackSize := flag.Int("size", 512, "packet size")
 	pnDebugMode := flag.Int("debug", 0, "debug mode - 0,1,2")
 	flag.Parse()
+
 	bsBufR := make([]byte, BUFSIZE)
-	//bsBufQ := make([]byte, QUESIZE)
 	bsBufP := make([]byte, *pnPackSize)
 
 	// 연결 대기
 	listen, err = net.Listen("tcp", *pstAddress)
-	checkErr(0, "Listen", err)
+	if err != nil {
+		fmt.Printf("failed listen to %s", *pstAddress)
+		panic(err)
+	}
 	fmt.Printf("Start (%s)\n", *pstAddress)
-
 	defer listen.Close()
 
 	// 연결 요청 처리
@@ -63,10 +65,12 @@ func main() {
 			continue
 		}
 
-		nIxCount, nIxRead, nIxWrite, nIxTemp, nIxMod = 0, 0, 0, 0, 0
-
-		conn.(*net.TCPConn).SetReadBuffer(WINSIZE)
-		conn.(*net.TCPConn).SetWriteBuffer(WINSIZE)
+		if err := conn.(*net.TCPConn).SetReadBuffer(WINSIZE); err != nil {
+			fmt.Printf("SetReadBuffer err %s", err)
+		}
+		if err = conn.(*net.TCPConn).SetWriteBuffer(WINSIZE); err != nil {
+			fmt.Printf("SetWriteBuffer err %s", err)
+		}
 
 		for {
 			// 수신
@@ -79,10 +83,12 @@ func main() {
 			}
 			nReadCntTotal++
 			nReadSzTotal += nReadSz
-			if *pnDebugMode == 1 {
-				//fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n", nReadSz, nReadCntTotal, nReadSzTotal)
-			} else if *pnDebugMode == 2 {
-				//fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n(%v)\n", nReadSz, nReadCntTotal, nReadSzTotal, bsBufR[:nReadSz])
+
+			switch *pnDebugMode {
+			case 1:
+				fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n", nReadSz, nReadCntTotal, nReadSzTotal)
+			case 2:
+				fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n(%v)\n", nReadSz, nReadCntTotal, nReadSzTotal, bsBufR[:nReadSz])
 			}
 
 			// 원형버퍼큐 저장
@@ -93,36 +99,27 @@ func main() {
 			}
 			nIxTemp = QUESIZE - nIxWrite
 			if nIxTemp >= nReadSz {
-				//copy(bsBufQ[nIxWrite:], bsBufR[:nReadSz])
 				nIxWrite += nReadSz
 				if nIxWrite >= QUESIZE {
 					nIxWrite = 0
 				}
 			} else {
-				//copy(bsBufQ[nIxWrite:], bsBufR[:nIxTemp])
-				//copy(bsBufQ[:], bsBufR[nIxTemp:nReadSz])
 				nIxWrite = nReadSz - nIxTemp
 			}
 
 			// 원형버퍼큐 처리 -> 송신
 			for {
 				if nIxCount < *pnPackSize {
-					if *pnDebugMode > 0 {
-						// fmt.Printf("[W] Write IxCount(%d) < PACK_SIZE\n", nIxCount)
-					}
 					break
 				}
 				nIxTemp = QUESIZE - nIxRead
 				if nIxTemp >= *pnPackSize {
-					//copy(bsBufP[:], bsBufQ[nIxRead:nIxRead+*pnPackSize])
 					nIxRead += *pnPackSize
 					if nIxRead >= QUESIZE {
 						nIxRead = 0
 					}
 				} else {
 					nIxMod = *pnPackSize - nIxTemp
-					//copy(bsBufP[:], bsBufQ[nIxRead:])
-					//copy(bsBufP[nIxTemp:], bsBufQ[:nIxMod])
 					nIxRead = nIxMod
 				}
 				nIxCount -= *pnPackSize
@@ -138,32 +135,17 @@ func main() {
 				}
 				nSendCntTotal++
 				nSendSzTotal += nSendSz
-				if *pnDebugMode == 1 {
+				switch *pnDebugMode {
+				case 1:
 					fmt.Printf("Write (SSz:%d) (SCT:%d)(SST:%d)\n", nSendSz, nSendCntTotal, nSendSzTotal)
-				} else if *pnDebugMode == 2 {
+				case 2:
 					fmt.Printf("Write (SSz:%d) (SCT:%d)(SST:%d)\n(%v)", nSendSz, nSendCntTotal, nSendSzTotal, bsBufP[:1])
 				}
 			}
 		}
-		//}()
 
 		conn.Close()
-		//syncWait.Wait()
-	}
-
-	// 종료
-	fmt.Println("Stop")
-}
-
-// 에러 체크
-func checkErr(nMode int, strTitle string, err error) {
-	if err != nil {
-		fmt.Println(strTitle + " -> " + err.Error())
-		if nMode == 0 {
-			panic(err)
-		} else {
-		}
-	} else {
-		// 에러 아니여 ~
+		// 종료
+		fmt.Println("Stop")
 	}
 }
