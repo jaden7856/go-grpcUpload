@@ -18,6 +18,16 @@ linters-settings:
     scope: all
   gofmt:
     simplify: false
+  tagliatelle:
+    case:
+      use-field-name: true
+      rules:
+        json: camel
+        yaml: camel
+        xml: camel
+        bson: camel
+        avro: camel
+        mapstructure: camel
   revive:
     severity: warning
     rules:
@@ -141,8 +151,10 @@ linters-settings:
   gocritic:
     disabled-checks:
       - exitAfterDefer # panic is required when examines config
+      - commentFormatting
 linters:
   enable:
+    - tagliatelle # Checks the struct tags.
     - errcheck # checks unchecked errors
     - gosimple # simplify code
     - govet # examines Go source code and reports suspicious constructs
