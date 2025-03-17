@@ -1,22 +1,22 @@
 syntax = "proto3";
 
-package ipcgrpc;
+package ipc_grpc;
 
-option go_package = "github.com/jaden7856/go-grpcUpload/AsyngRPC/AsyngRPCs/protobuf";
+option go_package = "github.com/jaden7856/go-grpcUpload/AsyngRPC/AsyngRPCs/protobuf;pb";
 
 // 내부IPC 서비스 - 내부IPC 용으로 GRPC 사용 테스트
 service Ipcgrpc {
+  // 클라이언트와 서버 간 스트리밍 데이터 전송
     rpc SendData (stream IpcRequest) returns (stream IpcReply) {}
 }
 
 // 요청 메시지
 message IpcRequest {
-  bytes bsreq = 1;
-  int64 nsize = 2;
+  bytes payload = 1;  // 요청 데이터
+  int64 size = 2;     // 데이터 크기 (bytes)
 }
 
 // 응답 메시지
 message IpcReply {
-  bytes bsres = 1;
+  bytes payload = 1;  // 응답 데이터
 }
-
