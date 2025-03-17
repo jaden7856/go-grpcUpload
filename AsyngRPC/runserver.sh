@@ -5,31 +5,32 @@ gnPort=50055
 
 # pkill -9 go-server
 
-for sTarget in ${gsTarget[*]}
-do
-	echo ${sTarget}
-	cd ${sTarget}
+# Iterate over targets
+for sTarget in "${gsTarget[@]}"; do
+    echo "Processing $sTarget..."
 
-	if [ "$?" == "0" ]
-	then
-    for nSize in 1024 # 1024 2048 4096 8192 16384 32768 65536
-    do
-      let gnPort=gnPort+1
-      echo "./server/go-server-$sTarget -add=master:$gnPort -size=$nSize -debug=0 &"
-      ./server/go-server-$sTarget -add=master:$gnPort -size=$nSize -debug=0 &
+    # Change directory to target directory
+    if ! cd "$sTarget"; then
+        echo "Failed to change directory to $sTarget"
+        continue
+    fi
 
-      if [ "$?" == "0" ]
-      then
-        echo "OK"
-      else
-        echo "Failure"
-      fi
+    # Iterate over sizes (could be extended to multiple values)
+    for nSize in 1024; do
+        let gnPort+=1
+        echo "Running ./server/go-server-$sTarget -add=master:$gnPort -size=$nSize -debug=0 &"
+
+        # Start the server in the background
+        if ./server/go-server-$sTarget -add=master:$gnPort -size=$nSize -debug=0 &; then
+            echo "Server started successfully on port $gnPort with size $nSize"
+        else
+            echo "Failure starting server on port $gnPort with size $nSize"
+        fi
     done
-	else
-		echo "Failure"
-	fi
 
-	cd ..
-	echo `pwd`
+    # Return to the previous directory
+    cd .. || { echo "Failed to return to previous directory"; exit 1; }
+
+    # Print current working directory for verification
+    echo "Returned to $(pwd)"
 done
-
