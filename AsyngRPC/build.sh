@@ -24,7 +24,7 @@ for sTarget in "AsynSocket" "AsyngRPCs"; do
     fi
 
     # Compile the server and client
-    if cd server && rm -f ./go-server-$sTarget && go build -o go-server-$sTarget server.go; then
+    if cd server && rm -f ./go-server-$sTarget && go build -mod=vendor -o go-server-$sTarget server.go; then
         echo "Server compiled successfully for $sTarget"
     else
         echo "Failed to compile server for $sTarget"
@@ -32,7 +32,7 @@ for sTarget in "AsynSocket" "AsyngRPCs"; do
         continue
     fi
 
-    if cd ../client && rm -f ./go-client-$sTarget && go build -o go-client-$sTarget client.go; then
+    if cd ../client && rm -f ./go-client-$sTarget && go build -mod=vendor -o go-client-$sTarget client.go; then
         echo "Client compiled successfully for $sTarget"
     else
         echo "Failed to compile client for $sTarget"

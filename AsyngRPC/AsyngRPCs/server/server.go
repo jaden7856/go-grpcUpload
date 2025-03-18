@@ -27,92 +27,128 @@ import (
 
 const WINSIZE = 4194304 // 1024 * 1024 * 4
 
-type stServer struct {
-	*pb.UnimplementedIpcgrpcServer
-	nReadCntTotal int
-	nSendCntTotal int
-	nDebugMode    int
-	nReadSzTotal  int
-	nSendSzTotal  int
-	req           *pb.IpcRequest
-	res           *pb.IpcReply
-	err           error
+type GrpcServer struct {
+	pb.UnimplementedIpcgrpcServer
+	address      string
+	debugMode    int
+	readCntTotal int
+	sendCntTotal int
+	readSzTotal  int
+	sendSzTotal  int
 }
 
-func (svr *stServer) SendData(stream pb.Ipcgrpc_SendDataServer) error {
-	log.Println("start new server")
-	for {
-		// 수신
-		svr.req, svr.err = stream.Recv()
-		if svr.err != nil {
-			if errors.Is(svr.err, io.EOF) {
-				if svr.nDebugMode > 0 {
-					fmt.Printf("Read EOF\n\n")
-				}
-				break
-			}
-			if svr.nDebugMode > 0 {
-				fmt.Printf("Read ERR (%v)\n\n", svr.err)
-			}
-			return svr.err
-		}
-
-		svr.nReadCntTotal++
-		svr.nReadSzTotal += int(svr.req.Nsize) // [swc-vvv]
-		switch svr.nDebugMode {
-		case 1:
-			fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n", svr.req.Nsize, svr.nReadCntTotal, svr.nReadSzTotal)
-		case 2:
-			fmt.Printf("Read (RSz:%d) (RCT:%d)(RST:%d)\n(%v)\n", svr.req.Nsize, svr.nReadCntTotal, svr.nReadSzTotal, svr.req.Bsreq)
-		}
-		// 송신
-		svr.res = &pb.IpcReply{Bsres: svr.req.Bsreq[0:1]}
-		if svr.err = stream.Send(svr.res); svr.err != nil {
-			fmt.Printf("send error %v", svr.err)
-		}
-
-		svr.nSendCntTotal++
-		svr.nSendSzTotal++
-
-		switch svr.nDebugMode {
-		case 1:
-			fmt.Printf("Send (SSz:%d) (SCT:%d)(SST:%d)\n", 1, svr.nSendCntTotal, svr.nSendSzTotal)
-		case 2:
-			fmt.Printf("Send (SSz:%d) (SCT:%d)(SST:%d)\n(%v)\n", 1, svr.nSendCntTotal, svr.nSendSzTotal, svr.res.Bsres)
-		}
+// NewGrpcServer 생성자
+func NewGrpcServer(address string, debugMode int) *GrpcServer {
+	return &GrpcServer{
+		address:   address,
+		debugMode: debugMode,
 	}
+}
+
+// 데이터 수신 함수
+func (svr *GrpcServer) receiveData(stream pb.Ipcgrpc_SendDataServer) (*pb.IpcRequest, error) {
+	req, err := stream.Recv()
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			if svr.debugMode > 0 {
+				fmt.Println("Read EOF")
+			}
+			return nil, io.EOF
+		}
+		if svr.debugMode > 0 {
+			fmt.Printf("Read ERR: %v\n", err)
+		}
+		return nil, err
+	}
+
+	// 수신 데이터 카운트 증가
+	svr.readCntTotal++
+	svr.readSzTotal += int(req.Nsize)
+
+	if svr.debugMode >= 1 {
+		fmt.Printf("Read (RSz: %d) (RCT: %d) (RST: %d)\n", req.Nsize, svr.readCntTotal, svr.readSzTotal)
+	}
+	if svr.debugMode >= 2 {
+		fmt.Printf("Data: %v\n", req.Bsreq)
+	}
+
+	return req, nil
+}
+
+// 데이터 송신 함수
+func (svr *GrpcServer) sendData(stream pb.Ipcgrpc_SendDataServer, data []byte) error {
+	res := &pb.IpcReply{Bsres: data}
+	err := stream.Send(res)
+	if err != nil {
+		fmt.Printf("Send error: %v\n", err)
+		return err
+	}
+
+	// 송신 데이터 카운트 증가
+	svr.sendCntTotal++
+	svr.sendSzTotal++
+
+	if svr.debugMode >= 1 {
+		fmt.Printf("Send (SSz: %d) (SCT: %d) (SST: %d)\n", len(data), svr.sendCntTotal, svr.sendSzTotal)
+	}
+	if svr.debugMode >= 2 {
+		fmt.Printf("Sent Data: %v\n", res.Bsres)
+	}
+
 	return nil
 }
 
-func main() {
-	var (
-		err  error
-		opts []grpc.ServerOption
-	)
+// SendData gRPC 메서드 구현
+func (svr *GrpcServer) SendData(stream pb.Ipcgrpc_SendDataServer) error {
+	log.Println("Start new gRPC server session")
 
-	pstAddress := flag.String("add", "localhost:50057", "ip:port")
-	pnPackSize := flag.Int("size", 512, "packet size")
-	pnDebugMode := flag.Int("debug", 0, "debug mode - 0,1,2")
-	*pnPackSize = 512
-	flag.Parse()
+	for {
+		req, err := svr.receiveData(stream)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
 
-	lis, err := net.Listen("tcp", *pstAddress)
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		// 받은 데이터 일부만 송신 (예제에서는 첫 바이트만 전송)
+		if err := svr.sendData(stream, req.Bsreq[:1]); err != nil {
+			return err
+		}
 	}
-	defer lis.Close()
 
-	opts = []grpc.ServerOption{grpc.MaxRecvMsgSize(WINSIZE), grpc.MaxSendMsgSize(WINSIZE)}
+	return nil
+}
 
-	// gRPC 서버 생성
-	grpcServer := grpc.NewServer(opts...)
+// Run gRPC 서버 실행 함수
+func (svr *GrpcServer) Run() error {
+	listener, err := net.Listen("tcp", svr.address)
+	if err != nil {
+		return fmt.Errorf("failed to listen on %s: %v", svr.address, err)
+	}
+	defer listener.Close()
 
-	pb.RegisterIpcgrpcServer(grpcServer, &stServer{nReadCntTotal: 0, nSendCntTotal: 0, nDebugMode: *pnDebugMode,
-		req: nil, res: nil, err: nil})
+	serverOptions := []grpc.ServerOption{
+		grpc.MaxRecvMsgSize(WINSIZE),
+		grpc.MaxSendMsgSize(WINSIZE),
+	}
+
+	grpcServer := grpc.NewServer(serverOptions...)
+	pb.RegisterIpcgrpcServer(grpcServer, svr)
 	reflection.Register(grpcServer)
 
-	log.Printf("start gRPC server on %s port", *pstAddress)
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %s", err)
+	log.Printf("Starting gRPC server on %s", svr.address)
+	return grpcServer.Serve(listener)
+}
+
+func main() {
+	address := flag.String("add", "localhost:50057", "gRPC server address (ip:port)")
+	debugMode := flag.Int("debug", 0, "Debug mode (0: off, 1: basic, 2: verbose)")
+	flag.Parse()
+
+	// 서버 실행
+	server := NewGrpcServer(*address, *debugMode)
+	if err := server.Run(); err != nil {
+		log.Fatalf("Server error: %v", err)
 	}
 }
