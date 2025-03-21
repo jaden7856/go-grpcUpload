@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v3.19.3
-// source: AsyngRPC/AsyngRPCs/protobuf/ipc.proto
+// source: AsyngRPC/protobuf/ipc.proto
 
 package pb
 
@@ -117,5 +117,5 @@ var Ipcgrpc_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "AsyngRPC/AsyngRPCs/protobuf/ipc.proto",
+	Metadata: "AsyngRPC/protobuf/ipc.proto",
 }
