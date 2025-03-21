@@ -8,7 +8,7 @@ import (
 
 func main() {
 	app := cli.NewApp()
-	app.Name = "Server"
+	app.Name = "Upload Server"
 	app.Usage = "Multi File Transferred Server"
 	app.Version = "0.0.1"
 	app.Commands = []cli.Command{

@@ -8,7 +8,7 @@ import (
 
 func main() {
 	app := cli.NewApp()
-	app.Name = "grpc-Upload"
+	app.Name = "Upload Client"
 	app.Usage = "Multi File Transferred"
 	app.Version = "0.0.1"
 	app.Commands = []cli.Command{
