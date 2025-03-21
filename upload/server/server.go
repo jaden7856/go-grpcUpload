@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/jaden7856/go-grpcUpload/upload/streamProtoc"
 	"io"
 	"net"
 	"os"
@@ -9,7 +10,6 @@ import (
 	"path/filepath"
 	"time"
 
-	streamPb "github.com/jaden7856/go-grpcUpload/streamProtoc"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"google.golang.org/grpc"
@@ -34,7 +34,7 @@ var kasp = keepalive.ServerParameters{
 }
 
 type ServerGRPC struct {
-	streamPb.UnimplementedUploadFileServiceServer
+	streamProtoc.UnimplementedUploadFileServiceServer
 	server *grpc.Server
 
 	Address string
@@ -80,7 +80,7 @@ func (s *ServerGRPC) Listen() (err error) {
 	)
 
 	// gRPC 서버 등록
-	streamPb.RegisterUploadFileServiceServer(s.server, s)
+	streamProtoc.RegisterUploadFileServiceServer(s.server, s)
 
 	if err = s.server.Serve(lis); err != nil {
 		err = errors.Wrapf(err, "errored listening for grpc connections")
@@ -108,10 +108,10 @@ func writeToFp(fp *os.File, data []byte) error {
 }
 
 //goland:noinspection ALL
-func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err error) {
+func (s *ServerGRPC) Upload(stream streamProtoc.UploadFileService_UploadServer) (err error) {
 	var (
 		fp       *os.File
-		fileData *streamPb.UploadRequest
+		fileData *streamProtoc.UploadRequest
 		filename string
 	)
 
@@ -134,9 +134,9 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 		if firstChunk {
 			if filename == "" {
 				fmt.Println("FileName not provided in first chunk : " + filename)
-				stream.SendAndClose(&streamPb.UploadResponse{
+				stream.SendAndClose(&streamProtoc.UploadResponse{
 					Message: "FileName not provided in first chunk : " + filename,
-					Code:    streamPb.UploadStatusCode_Failed,
+					Code:    streamProtoc.UploadStatusCode_Failed,
 				})
 				return
 			}
@@ -145,9 +145,9 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 			fp, err = os.Create(path.Join(s.destDir, filepath.Base(filename)))
 			if err != nil {
 				fmt.Println("Unable to create file : " + filename)
-				stream.SendAndClose(&streamPb.UploadResponse{
+				stream.SendAndClose(&streamProtoc.UploadResponse{
 					Message: "Unable to create file : " + filename,
-					Code:    streamPb.UploadStatusCode_Failed,
+					Code:    streamProtoc.UploadStatusCode_Failed,
 				})
 				return
 			}
@@ -157,9 +157,9 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 		// 생성된 파일에 전송된 data들을 write하고, 에러 발생시 전송 후 종료
 		if err = writeToFp(fp, fileData.Content); err != nil {
 			fmt.Println("Unable to write chunk of filename : " + filename + " " + err.Error())
-			stream.SendAndClose(&streamPb.UploadResponse{
+			stream.SendAndClose(&streamProtoc.UploadResponse{
 				Message: "Unable to write chunk of filename : " + filename,
-				Code:    streamPb.UploadStatusCode_Failed,
+				Code:    streamProtoc.UploadStatusCode_Failed,
 			})
 			return
 		}
@@ -168,9 +168,9 @@ func (s *ServerGRPC) Upload(stream streamPb.UploadFileService_UploadServer) (err
 	fp.Close()
 
 	// 정상적으로 다 파일을 받고나서 클아이언트에 정상적으로 완료가 되었다는 메세지를 전달
-	if err = stream.SendAndClose(&streamPb.UploadResponse{
+	if err = stream.SendAndClose(&streamProtoc.UploadResponse{
 		Message: "Upload received with success",
-		Code:    streamPb.UploadStatusCode_Ok,
+		Code:    streamProtoc.UploadStatusCode_Ok,
 	}); err != nil {
 		err = errors.Wrapf(err, "failed to send status code")
 		return

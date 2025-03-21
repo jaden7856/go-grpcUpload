@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/jaden7856/go-grpcUpload/AsyngRPC/protobuf"
+	"github.com/jaden7856/go-grpcUpload/async_rpc/protobuf"
 )
 
 type SocketServer struct {

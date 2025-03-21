@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/jaden7856/go-grpcUpload/upload/streamProtoc"
 	"io"
 	"io/ioutil"
 	"log"
@@ -12,7 +13,6 @@ import (
 	"time"
 
 	"github.com/cheggaaa/pb"
-	streamPb "github.com/jaden7856/go-grpcUpload/streamProtoc"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"google.golang.org/grpc"
@@ -29,7 +29,7 @@ var kacp = keepalive.ClientParameters{
 
 type uploader struct {
 	dir    string
-	client streamPb.UploadFileServiceClient
+	client streamProtoc.UploadFileServiceClient
 	ctx    context.Context
 	wg     sync.WaitGroup
 	pool   *pb.Pool
@@ -39,7 +39,7 @@ type uploader struct {
 	FailRequest chan string
 }
 
-func NewUploader(ctx context.Context, client streamPb.UploadFileServiceClient, dir string) *uploader {
+func NewUploader(ctx context.Context, client streamProtoc.UploadFileServiceClient, dir string) *uploader {
 	d := &uploader{
 		ctx:         ctx,
 		client:      client,
@@ -123,13 +123,13 @@ func (d *uploader) worker(_ int) error {
 
 			if firstChunk {
 				// Send to Server
-				err = stream.Send(&streamPb.UploadRequest{
+				err = stream.Send(&streamProtoc.UploadRequest{
 					Content:  buf[:f],
 					Filename: request,
 				})
 				firstChunk = false
 			} else {
-				err = stream.Send(&streamPb.UploadRequest{
+				err = stream.Send(&streamProtoc.UploadRequest{
 					Content: buf[:f],
 				})
 			}
@@ -142,7 +142,7 @@ func (d *uploader) worker(_ int) error {
 
 		// 클라이언트에서 send를 완료하고 서버에서 다 받고나서 완료 메세지를 보내면
 		// 그 메세지를 받아서 상태를 체크
-		if status, err := stream.CloseAndRecv(); err != nil || status.Code != streamPb.UploadStatusCode_Ok {
+		if status, err := stream.CloseAndRecv(); err != nil || status.Code != streamProtoc.UploadStatusCode_Ok {
 			fmt.Printf("Error uploading file : " + request + " :" + status.Message)
 			bar.FinishPrint("Error uploading file : " + request + " Error :" + err.Error())
 			bar.Reset(0)
@@ -157,7 +157,7 @@ func (d *uploader) worker(_ int) error {
 	return nil
 }
 
-func UploadFile(ctx context.Context, client streamPb.UploadFileServiceClient, filePathList []string, dir string) error {
+func UploadFile(ctx context.Context, client streamProtoc.UploadFileServiceClient, filePathList []string, dir string) error {
 	var errUpload error
 
 	d := NewUploader(ctx, client, dir)
@@ -250,7 +250,7 @@ func uploadCommand() cli.Command {
 
 			return UploadFile(
 				context.Background(),
-				streamPb.NewUploadFileServiceClient(conn),
+				streamProtoc.NewUploadFileServiceClient(conn),
 				[]string{},
 				c.String("d"),
 			)

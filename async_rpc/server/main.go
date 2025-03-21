@@ -6,7 +6,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/jaden7856/go-grpcUpload/AsyngRPC/server/async"
+	"github.com/jaden7856/go-grpcUpload/async_rpc/server/async"
 	"github.com/pkg/errors"
 )
 

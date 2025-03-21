@@ -6,7 +6,7 @@ import (
 	"log"
 	"net"
 
-	pb "github.com/jaden7856/go-grpcUpload/AsyngRPC/protobuf"
+	pb "github.com/jaden7856/go-grpcUpload/async_rpc/protobuf"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
